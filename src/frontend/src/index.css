@@ -1,0 +1,207 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 8% 0.01 240;
+    --foreground: 92% 0.015 65;
+    --card: 10% 0.015 240;
+    --card-foreground: 92% 0.015 65;
+    --popover: 10% 0.015 240;
+    --popover-foreground: 92% 0.015 65;
+    --primary: 75% 0.15 60;
+    --primary-foreground: 8% 0.01 240;
+    --secondary: 12% 0.02 240;
+    --secondary-foreground: 85% 0.01 65;
+    --muted: 14% 0.015 240;
+    --muted-foreground: 72% 0.01 65;
+    --accent: 75% 0.15 60;
+    --accent-foreground: 8% 0.01 240;
+    --destructive: 60% 0.22 25;
+    --destructive-foreground: 95% 0.005 65;
+    --border: 18% 0.02 240;
+    --input: 18% 0.02 240;
+    --ring: 75% 0.15 60;
+    --radius: 0.75rem;
+    --chart-1: 75% 0.15 60;
+    --chart-2: 62% 0.18 145;
+    --chart-3: 60% 0.18 25;
+    --chart-4: 65% 0.12 220;
+    --chart-5: 65% 0.15 300;
+    --sidebar: 8% 0.01 240;
+    --sidebar-foreground: 92% 0.015 65;
+    --sidebar-primary: 75% 0.15 60;
+    --sidebar-primary-foreground: 8% 0.01 240;
+    --sidebar-accent: 12% 0.02 240;
+    --sidebar-accent-foreground: 85% 0.01 65;
+    --sidebar-border: 18% 0.02 240;
+    --sidebar-ring: 75% 0.15 60;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: "Playfair Display", serif;
+  }
+  .font-mono {
+    font-family: "JetBrains Mono", monospace;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(60% 0.12 60);
+  border-radius: 99px;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px oklch(75% 0.15 60 / 0.25);
+  }
+  50% {
+    box-shadow: 0 0 50px oklch(75% 0.15 60 / 0.45);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes price-flash {
+  0% {
+    color: oklch(75% 0.15 60);
+  }
+  100% {
+    color: inherit;
+  }
+}
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-ticker {
+  animation: ticker-scroll 40s linear infinite;
+}
+.animate-float-up {
+  animation: float-up 0.7s ease forwards;
+}
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+.animate-card-enter {
+  animation: card-enter 0.5s ease forwards;
+}
+.animate-spin-slow {
+  animation: spin-slow 10s linear infinite;
+}
+
+.gold-text {
+  color: oklch(75% 0.15 60);
+}
+.gold-gradient {
+  background: linear-gradient(135deg, oklch(78% 0.17 65), oklch(65% 0.12 55));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.glass-card {
+  background: oklch(10% 0.015 240 / 0.75);
+  backdrop-filter: blur(12px);
+}
+.gold-border-glow {
+  border: 1px solid oklch(60% 0.12 60 / 0.25);
+  box-shadow: 0 0 20px oklch(75% 0.15 60 / 0.06), inset 0 1px 0
+    oklch(75% 0.15 60 / 0.08);
+}
+.signal-card-stack {
+  perspective: 1200px;
+}
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    oklch(75% 0.15 60),
+    oklch(90% 0.08 65),
+    oklch(75% 0.15 60)
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+.buy-glow {
+  box-shadow: 0 0 30px oklch(62% 0.18 145 / 0.15);
+}
+.sell-glow {
+  box-shadow: 0 0 30px oklch(60% 0.18 25 / 0.15);
+}
+.section-heading {
+  font-family: "Playfair Display", serif;
+  letter-spacing: -0.02em;
+}
