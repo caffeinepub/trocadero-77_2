@@ -102,7 +102,7 @@ export default function FounderSection() {
 
             <div className="w-24 h-px bg-gradient-to-r from-gold to-transparent" />
 
-            <div className="space-y-4 text-foreground/70 leading-relaxed">
+            <div className="space-y-4 text-foreground/90 leading-relaxed">
               <p>
                 Malverin Stonehart is the visionary founder behind this
                 platform, driven by a passion for innovation, entrepreneurship,
@@ -137,7 +137,7 @@ export default function FounderSection() {
                   <div className="text-xl font-mono font-bold text-gold">
                     {item.value}
                   </div>
-                  <div className="text-xs text-foreground/65">{item.label}</div>
+                  <div className="text-xs text-foreground/85">{item.label}</div>
                 </div>
               ))}
             </div>
@@ -146,14 +146,14 @@ export default function FounderSection() {
               <button
                 type="button"
                 data-ocid="founder.link"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-gold/30 text-foreground/70 hover:text-gold transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-gold/30 text-foreground/90 hover:text-gold transition-colors text-sm"
               >
                 <Linkedin className="w-4 h-4" /> LinkedIn
               </button>
               <button
                 type="button"
                 data-ocid="founder.link"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-gold/30 text-foreground/70 hover:text-gold transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-gold/30 text-foreground/90 hover:text-gold transition-colors text-sm"
               >
                 <Globe className="w-4 h-4" /> Portfolio
               </button>

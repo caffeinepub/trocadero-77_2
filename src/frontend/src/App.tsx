@@ -76,11 +76,11 @@ export default function App() {
               TROCADERO 77
             </div>
             <div className="w-px h-4 bg-border" />
-            <div className="text-xs text-foreground/65 font-mono">
+            <div className="text-xs text-foreground/85 font-mono">
               Institutional-Grade Signals
             </div>
           </div>
-          <div className="text-xs text-foreground/55 text-center">
+          <div className="text-xs text-foreground/85 text-center">
             © {new Date().getFullYear()}. Built with ❤️ using{" "}
             <a
               href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
@@ -91,7 +91,7 @@ export default function App() {
               caffeine.ai
             </a>
           </div>
-          <div className="text-xs text-foreground/50 font-mono">
+          <div className="text-xs text-foreground/80 font-mono">
             Trading signals carry risk. DYOR.
           </div>
         </div>

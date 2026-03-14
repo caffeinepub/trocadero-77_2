@@ -45,7 +45,7 @@ export default function HighProfitSection({
           <h2 className="section-heading text-4xl md:text-5xl font-bold mb-4">
             High <span className="gold-gradient">Profit</span> Signals
           </h2>
-          <p className="text-foreground/70 max-w-lg mx-auto">
+          <p className="text-foreground/90 max-w-lg mx-auto">
             Highest potential return opportunities identified by our AI engine,
             sorted by estimated profit.
           </p>
@@ -102,7 +102,7 @@ export default function HighProfitSection({
                         <div className="font-display font-bold">
                           {signal.coinName}
                         </div>
-                        <div className="text-xs font-mono text-foreground/70">
+                        <div className="text-xs font-mono text-foreground/90">
                           {signal.symbol}/USDT
                         </div>
                       </div>
@@ -115,7 +115,7 @@ export default function HighProfitSection({
                         </span>
                       </div>
                     ) : (
-                      <div className="text-xs font-mono text-foreground/55">
+                      <div className="text-xs font-mono text-foreground/85">
                         #{idx + 1}
                       </div>
                     )}
@@ -125,7 +125,7 @@ export default function HighProfitSection({
                     <div className="text-3xl font-mono font-bold text-gold">
                       +{signal.profitPercent}%
                     </div>
-                    <div className="text-xs text-foreground/65 mt-1">
+                    <div className="text-xs text-foreground/85 mt-1">
                       Estimated Profit
                     </div>
                   </div>
@@ -148,17 +148,17 @@ export default function HighProfitSection({
 
                   <div className="space-y-2 text-xs font-mono">
                     <div className="flex justify-between">
-                      <span className="text-foreground/65">Entry Price</span>
+                      <span className="text-foreground/85">Entry Price</span>
                       <span>{fmtPrice(signal.entryPrice)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-foreground/65">Take Profit</span>
+                      <span className="text-foreground/85">Take Profit</span>
                       <span className="text-signal-buy">
                         {fmtPrice(signal.takeProfit)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-foreground/65">Stop Loss</span>
+                      <span className="text-foreground/85">Stop Loss</span>
                       <span className="text-signal-sell">
                         {fmtPrice(signal.stopLoss)}
                       </span>
@@ -166,13 +166,13 @@ export default function HighProfitSection({
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-foreground/65">
+                    <div className="flex items-center gap-1.5 text-xs text-foreground/85">
                       <Clock className="w-3.5 h-3.5" />
                       <span className="font-mono">
                         {signal.estimatedHours}h to TP
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-foreground/55">
+                    <div className="text-xs font-mono text-foreground/85">
                       RSI {signal.rsi}
                     </div>
                   </div>
@@ -187,7 +187,7 @@ export default function HighProfitSection({
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.6 }}
-          className="mt-10 text-center text-xs font-mono text-foreground/50"
+          className="mt-10 text-center text-xs font-mono text-foreground/80"
         >
           Signals are generated using AI technical analysis. Past performance
           does not guarantee future results. Trade responsibly.

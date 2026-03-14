@@ -165,7 +165,7 @@ function SwipeCard({
                 <div className="font-display font-bold text-lg leading-tight">
                   {signal.coinName}
                 </div>
-                <div className="text-xs font-mono text-foreground/70">
+                <div className="text-xs font-mono text-foreground/90">
                   {signal.symbol}/USDT
                 </div>
               </div>
@@ -214,13 +214,13 @@ function SwipeCard({
                 >
                   {item.value}
                 </div>
-                <div className="text-[10px] text-foreground/65 mt-0.5">
+                <div className="text-[10px] text-foreground/85 mt-0.5">
                   {item.label}
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between text-xs text-foreground/70">
+          <div className="flex items-center justify-between text-xs text-foreground/90">
             <div className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-gold/60" />
               <span className="font-mono">
@@ -290,11 +290,11 @@ export default function SignalCardSection({
         <h2 className="section-heading text-4xl md:text-5xl font-bold mb-4">
           Trading <span className="gold-gradient">Signals</span>
         </h2>
-        <p className="text-foreground/70 max-w-lg mx-auto">
+        <p className="text-foreground/90 max-w-lg mx-auto">
           Swipe right to accept, left to skip. Click any card for full analysis.
         </p>
         {lastScanTime && (
-          <p className="text-xs font-mono text-foreground/55 mt-2">
+          <p className="text-xs font-mono text-foreground/85 mt-2">
             Last scan: {lastScanTime.toLocaleTimeString()}
           </p>
         )}
@@ -315,7 +315,7 @@ export default function SignalCardSection({
                   <div className="font-display text-lg mb-1">
                     All Signals Reviewed
                   </div>
-                  <div className="text-sm text-foreground/70">
+                  <div className="text-sm text-foreground/90">
                     Rescan for new opportunities
                   </div>
                 </div>
@@ -350,7 +350,7 @@ export default function SignalCardSection({
               <ChevronLeft className="w-6 h-6" />
             </button>
             <div className="text-center">
-              <div className="text-sm font-mono text-foreground/65">
+              <div className="text-sm font-mono text-foreground/85">
                 {remaining} signals
               </div>
               <div className="flex gap-1 mt-1 justify-center">
@@ -376,7 +376,7 @@ export default function SignalCardSection({
         </div>
 
         <div className="flex-1 space-y-3">
-          <div className="text-xs font-mono text-foreground/65 uppercase tracking-wider mb-4">
+          <div className="text-xs font-mono text-foreground/85 uppercase tracking-wider mb-4">
             All Active Signals
           </div>
           {signals.map((signal, idx) => {
@@ -406,7 +406,7 @@ export default function SignalCardSection({
                   <div className="text-sm font-semibold truncate">
                     {signal.coinName}
                   </div>
-                  <div className="text-xs font-mono text-foreground/65">
+                  <div className="text-xs font-mono text-foreground/85">
                     {signal.symbol}
                   </div>
                 </div>
@@ -420,7 +420,7 @@ export default function SignalCardSection({
                     {signal.confidence}% conf
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-foreground/50 group-hover:text-gold/40 transition-colors flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-foreground/80 group-hover:text-gold/40 transition-colors flex-shrink-0" />
               </motion.button>
             );
           })}

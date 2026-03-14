@@ -213,7 +213,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
                   decimals={item.dec}
                 />
               </div>
-              <div className="text-xs text-foreground/70 mt-1">
+              <div className="text-xs text-foreground/90 mt-1">
                 {item.label}
               </div>
             </motion.div>
@@ -226,7 +226,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
           transition={{ delay: 1.2 }}
           className="mt-16 flex flex-col items-center gap-2"
         >
-          <span className="text-xs font-mono text-foreground/55 tracking-widest uppercase">
+          <span className="text-xs font-mono text-foreground/85 tracking-widest uppercase">
             Scroll to Signals
           </span>
           <div className="w-px h-12 bg-gradient-to-b from-gold/40 to-transparent" />
