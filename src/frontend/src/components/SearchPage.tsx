@@ -1,6 +1,7 @@
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle,
+  AlertTriangle,
   Clock,
   Loader2,
   Search,
@@ -16,6 +17,28 @@ import {
   hasLearningData,
 } from "../hooks/useLearningEngine";
 import { ConfidenceRing } from "./ConfidenceRing";
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 8000,
+): Promise<Response> {
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+  const callerSignal = options.signal as AbortSignal | undefined;
+  const onCallerAbort = () => timeoutController.abort();
+  if (callerSignal) callerSignal.addEventListener("abort", onCallerAbort);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: timeoutController.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", onCallerAbort);
+  }
+}
 
 function fmtPrice(p: number) {
   if (p >= 1000)
@@ -44,7 +67,12 @@ const REASONING = [
     `${name} shows RSI ${dir === "long" ? "recovery from oversold" : "divergence from overbought"} zone with increasing volume.`,
 ];
 
-function generateSingleSignal(
+/**
+ * Search-specific signal generator.
+ * No 85% confidence floor -- returns a signal at any confidence level.
+ * Confidence is calculated honestly from how many indicators align.
+ */
+function generateSearchSignal(
   coin: {
     id: string;
     name: string;
@@ -54,12 +82,11 @@ function generateSingleSignal(
     totalVolume: number;
   },
   boostMap: Record<string, number>,
-  marketSentiment: "bullish" | "bearish" | "neutral",
   blacklist: Set<string>,
 ): SignalData | null {
   const sym = coin.symbol.toUpperCase();
-
   if (blacklist.has(sym)) return null;
+  if (!coin.currentPrice || coin.currentPrice <= 0) return null;
 
   const now = Date.now();
   const r = seededRand((now % 99991) + sym.charCodeAt(0) * 17 + 42);
@@ -88,23 +115,22 @@ function generateSingleSignal(
       : "bearish"
     : "neutral";
 
-  const rsiConditionMet = direction === "long" ? rsi < 52 : rsi > 58;
-  const macdConditionMet = macd !== "neutral";
-  const volumeConditionMet = volume === "high" || volume === "medium";
+  const rsiOk = direction === "long" ? rsi < 52 : rsi > 58;
+  const macdOk = macd !== "neutral";
+  const volOk = volume === "high" || volume === "medium";
   const hasPriceData = coin.priceChange24h != null;
-  const momentumAligned =
+  const momentumOk =
     !hasPriceData || absChange < 0.5
       ? true
       : (direction === "long" && change24h > 0) ||
         (direction === "short" && change24h < 0);
 
-  const allAligned =
-    rsiConditionMet &&
-    macdConditionMet &&
-    volumeConditionMet &&
-    momentumAligned;
-  if (!allAligned) return null;
+  const alignedCount = [rsiOk, macdOk, volOk, momentumOk].filter(
+    Boolean,
+  ).length;
 
+  // Honest confidence: 4/4 alignment = 85-100, fewer = lower
+  const alignmentBonus = (alignedCount / 4) * 30;
   const volumeBonus = volumeScore * 5;
   const momentumStrength = Math.min(absChange / 3, 1) * 8;
   const rsiStrength =
@@ -112,26 +138,24 @@ function generateSingleSignal(
       ? Math.max(0, (52 - rsi) / 24) * 6
       : Math.max(0, (rsi - 58) / 22) * 6;
 
-  const baseConfidence =
-    85 + r() * 8 + volumeBonus + momentumStrength + rsiStrength;
   const learningBoostVal = boostMap[sym] ?? 0;
   const reputation = getCoinReputation(sym);
   const reputationBoost = reputation === "high" ? 5 : 0;
+
+  // Base starts at 45 so partial alignment gives realistic 50-80% scores
+  const baseConfidence =
+    45 +
+    alignmentBonus +
+    volumeBonus +
+    momentumStrength +
+    rsiStrength +
+    r() * 10;
   const confidence = Math.min(
     100,
     Math.floor(baseConfidence + learningBoostVal + reputationBoost),
   );
 
-  if (confidence < 85) return null;
-
-  if (marketSentiment === "bearish" && direction === "long" && confidence < 90)
-    return null;
-  if (marketSentiment === "bullish" && direction === "short" && confidence < 90)
-    return null;
-
   const currentPrice = coin.currentPrice;
-  if (currentPrice <= 0) return null;
-
   const volatilityTier =
     absChange > 8 ? 1.0 : absChange > 4 ? 0.6 : absChange > 2 ? 0.3 : 0.1;
   const minProfit = 0.04;
@@ -152,7 +176,6 @@ function generateSingleSignal(
     direction === "long" ? entryPrice * 0.99 : entryPrice * 1.01;
   const estimatedHours = Math.floor(3 + r() * 44);
   const maxHoldHours = Math.round(estimatedHours * 1.3);
-
   const fn = REASONING[Math.floor(r() * REASONING.length)];
 
   return {
@@ -193,6 +216,7 @@ function ActiveSignalCard({
 }) {
   const isBuy = signal.direction === "long";
   const aiTrained = hasLearningData(signal.symbol);
+  const isLowConfidence = signal.confidence < 85;
 
   return (
     <button
@@ -200,7 +224,9 @@ function ActiveSignalCard({
       className="rounded-2xl overflow-hidden cursor-pointer w-full text-left"
       style={{
         background: "#ffffff",
-        border: "1px solid rgba(0,0,0,0.15)",
+        border: isLowConfidence
+          ? "1px solid rgba(234,179,8,0.45)"
+          : "1px solid rgba(0,0,0,0.15)",
         boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
       }}
       onClick={onClick}
@@ -215,6 +241,15 @@ function ActiveSignalCard({
         }}
       />
       <div className="p-4 sm:p-5">
+        {isLowConfidence && (
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <span className="text-xs font-mono font-bold text-amber-700">
+              Low Confidence ({signal.confidence}%) — Trade with caution
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div
@@ -283,9 +318,7 @@ function ActiveSignalCard({
               className="rounded-lg bg-muted p-2 sm:p-2.5 text-center"
             >
               <div
-                className={`text-xs sm:text-sm font-mono font-bold truncate ${
-                  item.hi ? "text-gold" : "text-foreground"
-                }`}
+                className={`text-xs sm:text-sm font-mono font-bold truncate ${item.hi ? "text-gold" : "text-foreground"}`}
               >
                 {item.value}
               </div>
@@ -374,23 +407,26 @@ export default function SearchPage({
     const trimmed = query.trim();
     if (!trimmed || scanState.status === "scanning") return;
 
-    // Cancel any previous scan
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     const setProgress = (label: string, progress: number) => {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted)
         setScanState({ status: "scanning", label, progress });
-      }
     };
+
+    const safeFetch = (url: string, timeoutMs = 8000) =>
+      fetchWithTimeout(url, { signal: controller.signal }, timeoutMs).catch(
+        () => null,
+      );
 
     try {
       setProgress(`Searching for "${trimmed}"...`, 15);
       await new Promise((r) => setTimeout(r, 300));
       if (controller.signal.aborted) return;
 
-      // --- Step 1: search existing loaded signals first (no API call needed) ---
+      // Step 1: check already-loaded signals first
       const q = trimmed.toLowerCase();
       const matchInExisting = existingSignals.find(
         (s) =>
@@ -414,26 +450,16 @@ export default function SearchPage({
         return;
       }
 
-      // --- Step 2: try CoinGecko live fetch ---
+      // Step 2: CoinGecko search
       setProgress(`Looking up "${trimmed}" on CoinGecko...`, 30);
+      const searchRes = await safeFetch(
+        `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(trimmed)}`,
+        8000,
+      );
 
-      let searchData: any = null;
-      try {
-        const searchRes = await fetch(
-          `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal },
-        );
-        if (searchRes.status === 429) {
-          // Rate limited — try to match by symbol from existing signals pool
-          // Fall through to offline analysis
-          throw Object.assign(new Error("rate_limited"), { rateLimited: true });
-        }
-        if (!searchRes.ok) throw new Error("CoinGecko search failed");
-        searchData = await searchRes.json();
-      } catch (fetchErr: any) {
-        if (fetchErr?.name === "AbortError") return;
-        // Network error or rate limit — check if we have any signals
-        // matching by prefix/ticker and surface "no opportunity" or "not found"
+      if (controller.signal.aborted) return;
+
+      if (!searchRes || searchRes.status === 429 || !searchRes.ok) {
         const partialMatch = existingSignals.find(
           (s) =>
             s.symbol.toLowerCase().startsWith(q) ||
@@ -447,12 +473,13 @@ export default function SearchPage({
         } else {
           setScanState({
             status: "error",
-            rateLimited: fetchErr?.rateLimited === true,
+            rateLimited: searchRes?.status === 429,
           });
         }
         return;
       }
 
+      const searchData = await searchRes.json().catch(() => null);
       const coins: { id: string; name: string; symbol: string }[] =
         searchData?.coins ?? [];
 
@@ -464,24 +491,25 @@ export default function SearchPage({
       const topCoin = coins[0];
       setProgress(`Found ${topCoin.name} — fetching market data...`, 45);
 
-      // Fetch market data + BingX pairs in parallel
       const [marketRes, bingxRes] = await Promise.all([
-        fetch(
+        safeFetch(
           `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${topCoin.id}&price_change_percentage=24h`,
-          { signal: controller.signal },
-        ).catch(() => null),
-        fetch("https://open-api.bingx.com/openApi/spot/v1/common/symbols", {
-          signal: controller.signal,
-        }).catch(() => null),
+          8000,
+        ),
+        safeFetch(
+          "https://open-api.bingx.com/openApi/spot/v1/common/symbols",
+          8000,
+        ),
       ]);
 
+      if (controller.signal.aborted) return;
+
       if (!marketRes || !marketRes.ok) {
-        // Market data unavailable (rate limit) — show no_opportunity for known coin
         setScanState({ status: "no_opportunity", coinName: topCoin.name });
         return;
       }
 
-      const marketData = await marketRes.json();
+      const marketData = await marketRes.json().catch(() => null);
       const coinData = Array.isArray(marketData) ? marketData[0] : null;
 
       if (!coinData) {
@@ -491,10 +519,9 @@ export default function SearchPage({
 
       setProgress("Checking BingX availability...", 65);
 
-      // Check BingX availability
       let isOnBingX = false;
       if (bingxRes?.ok) {
-        const bingxData = await bingxRes.json();
+        const bingxData = await bingxRes.json().catch(() => null);
         const symbols: { symbol: string }[] =
           bingxData?.data?.symbols ?? bingxData?.data ?? [];
         const symUpper = coinData.symbol.toUpperCase();
@@ -503,7 +530,6 @@ export default function SearchPage({
           return parts.startsWith(symUpper) || parts === `${symUpper}USDT`;
         });
       } else {
-        // BingX unreachable — assume available
         isOnBingX = true;
       }
 
@@ -512,14 +538,15 @@ export default function SearchPage({
         return;
       }
 
-      // Run signal analysis
       setProgress(`Analyzing ${coinData.name} signals...`, 85);
       await new Promise((r) => setTimeout(r, 400));
       if (controller.signal.aborted) return;
 
       const boostMap = getAllBoosts();
       const blacklist = getBlacklist();
-      const signal = generateSingleSignal(
+
+      // Use search-specific generator (no 85% floor)
+      const signal = generateSearchSignal(
         {
           id: topCoin.id,
           name: coinData.name,
@@ -529,7 +556,6 @@ export default function SearchPage({
           totalVolume: coinData.total_volume,
         },
         boostMap,
-        "neutral",
         blacklist,
       );
 
@@ -552,7 +578,6 @@ export default function SearchPage({
 
   return (
     <section className="relative px-3 sm:px-4 md:px-6 py-4 max-w-2xl mx-auto">
-      {/* Header */}
       <div className="w-full py-4 sm:py-6 px-2 flex flex-col items-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gold/30 bg-gold/5 mb-3 sm:mb-4">
           <Search className="w-3 h-3 text-gold" />
@@ -569,7 +594,6 @@ export default function SearchPage({
         </p>
       </div>
 
-      {/* Search bar */}
       <div className="flex gap-2 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40 pointer-events-none" />
@@ -608,7 +632,6 @@ export default function SearchPage({
         </button>
       </div>
 
-      {/* Scanning state */}
       {scanState.status === "scanning" && (
         <div
           className="w-full rounded-2xl border border-border p-6 space-y-4"
@@ -631,7 +654,6 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* Idle state */}
       {scanState.status === "idle" && (
         <div
           className="w-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-border gap-3 py-14"
@@ -646,11 +668,12 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* Found */}
       {scanState.status === "found" && (
         <div className="space-y-3" data-ocid="search.list">
           <div className="text-xs font-mono text-foreground/50 mb-2">
-            ✓ Trade opportunity found
+            {scanState.signal.confidence >= 85
+              ? "✓ High confidence trade opportunity found"
+              : "⚠ Signal found — low confidence, trade with caution"}
           </div>
           <ActiveSignalCard
             signal={scanState.signal}
@@ -661,7 +684,6 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* No opportunity */}
       {scanState.status === "no_opportunity" && (
         <div
           className="w-full flex flex-col items-center justify-center rounded-2xl border border-border gap-3 py-12 px-6"
@@ -679,8 +701,7 @@ export default function SearchPage({
               No Trade Opportunity Available
             </div>
             <div className="text-sm text-foreground/55 font-mono">
-              {scanState.coinName} doesn&apos;t meet the 85%+ confidence
-              threshold right now.
+              {scanState.coinName} has no actionable signal right now.
             </div>
             <div className="text-xs text-foreground/40 font-mono mt-1">
               Try again later or scan a different coin.
@@ -689,7 +710,6 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* Not on BingX */}
       {scanState.status === "not_on_bingx" && (
         <div
           className="w-full flex flex-col items-center justify-center rounded-2xl border border-border gap-3 py-12 px-6"
@@ -713,7 +733,6 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* Not found */}
       {scanState.status === "not_found" && (
         <div
           className="w-full flex flex-col items-center justify-center rounded-2xl border border-border gap-3 py-12 px-6"
@@ -740,7 +759,6 @@ export default function SearchPage({
         </div>
       )}
 
-      {/* Error */}
       {scanState.status === "error" && (
         <div
           className="w-full flex flex-col items-center justify-center rounded-2xl border border-border gap-3 py-12 px-6"
