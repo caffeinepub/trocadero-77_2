@@ -1,4 +1,12 @@
-import { BarChart3, Shield, TrendingUp, Zap } from "lucide-react";
+import {
+  BarChart3,
+  Brain,
+  Radio,
+  Shield,
+  TrendingDown,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -7,6 +15,10 @@ interface Stats {
   avgConfidence: number;
   avgProfit: number;
   winRate: number;
+  scannedPairs: number;
+  avgChange24h?: number;
+  sessionWins?: number;
+  sessionTotal?: number;
 }
 
 function Counter({
@@ -36,19 +48,46 @@ function Counter({
   );
 }
 
-export default function HeroSection({ stats }: { stats: Stats }) {
+interface HeroProps {
+  stats: Stats;
+  signals?: { direction: string }[];
+  marketSentiment?: "bullish" | "bearish" | "neutral";
+  excludedByReputation?: number;
+  autoLearned?: number;
+}
+
+export default function HeroSection({
+  stats,
+  signals,
+  marketSentiment = "neutral",
+  excludedByReputation = 0,
+  autoLearned = 0,
+}: HeroProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
+  const isBull = (stats.avgChange24h ?? 0) >= 0;
+  const bullPct =
+    signals && signals.length > 0
+      ? Math.round(
+          (signals.filter((s) => s.direction === "long").length /
+            signals.length) *
+            100,
+        )
+      : 68;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
     let W = canvas.offsetWidth;
     let H = canvas.offsetHeight;
-    canvas.width = W;
-    canvas.height = H;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    ctx.scale(dpr, dpr);
     const COL_W = 60;
     const ROW_H = 60;
     const COLS = Math.ceil(W / COL_W) + 1;
@@ -62,7 +101,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
       t += 0.008;
-      ctx.strokeStyle = "rgba(212,160,23,0.04)";
+      ctx.strokeStyle = "rgba(180,130,15,0.07)";
       ctx.lineWidth = 1;
       for (let c = 0; c <= COLS; c++) {
         ctx.beginPath();
@@ -80,7 +119,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
         const p = (Math.sin(t + n.phase) + 1) / 2;
         ctx.beginPath();
         ctx.arc(n.x, n.y, 1.5 + p * 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(212,160,23,${0.1 + p * 0.35})`;
+        ctx.fillStyle = `rgba(160,115,10,${0.12 + p * 0.3})`;
         ctx.fill();
       }
       for (let i = 0; i < 6; i++) {
@@ -89,8 +128,8 @@ export default function HeroSection({ stats }: { stats: Stats }) {
         const x = prog * W;
         const y = row * ROW_H + 30;
         const g = ctx.createRadialGradient(x, y, 0, x, y, 14);
-        g.addColorStop(0, "rgba(212,160,23,0.85)");
-        g.addColorStop(1, "rgba(212,160,23,0)");
+        g.addColorStop(0, "rgba(180,130,15,0.5)");
+        g.addColorStop(1, "rgba(180,130,15,0)");
         ctx.beginPath();
         ctx.arc(x, y, 14, 0, Math.PI * 2);
         ctx.fillStyle = g;
@@ -100,10 +139,14 @@ export default function HeroSection({ stats }: { stats: Stats }) {
     };
     draw();
     const onResize = () => {
+      const d = window.devicePixelRatio || 1;
       W = canvas.offsetWidth;
       H = canvas.offsetHeight;
-      canvas.width = W;
-      canvas.height = H;
+      canvas.width = W * d;
+      canvas.height = H * d;
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
+      ctx.setTransform(d, 0, 0, d, 0, 0);
     };
     window.addEventListener("resize", onResize);
     return () => {
@@ -113,6 +156,13 @@ export default function HeroSection({ stats }: { stats: Stats }) {
   }, []);
 
   const statItems = [
+    {
+      icon: Radio,
+      label: "Markets Scanned",
+      val: stats.scannedPairs,
+      suf: "",
+      dec: 0,
+    },
     {
       icon: BarChart3,
       label: "Active Signals",
@@ -137,6 +187,32 @@ export default function HeroSection({ stats }: { stats: Stats }) {
     { icon: Zap, label: "Win Rate", val: stats.winRate, suf: "%", dec: 0 },
   ];
 
+  const sentimentConfig = {
+    bullish: {
+      emoji: "🟢",
+      label: "Bullish Market",
+      bg: "oklch(96% 0.04 145)",
+      border: "oklch(80% 0.12 145)",
+      color: "oklch(38% 0.18 145)",
+    },
+    bearish: {
+      emoji: "🔴",
+      label: "Bearish Market",
+      bg: "oklch(96% 0.04 25)",
+      border: "oklch(80% 0.12 25)",
+      color: "oklch(38% 0.18 25)",
+    },
+    neutral: {
+      emoji: "⚪",
+      label: "Neutral Market",
+      bg: "oklch(96% 0.01 240)",
+      border: "oklch(80% 0.04 240)",
+      color: "oklch(38% 0.06 240)",
+    },
+  };
+
+  const sc = sentimentConfig[marketSentiment];
+
   return (
     <section
       id="hero"
@@ -151,7 +227,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 40%, oklch(10% 0.02 240 / 0.4) 0%, oklch(8% 0.01 240 / 0.96) 70%)",
+            "radial-gradient(ellipse 80% 60% at 50% 40%, oklch(97% 0.01 240 / 0.3) 0%, oklch(98% 0.005 240 / 0.92) 70%)",
           zIndex: 1,
         }}
       />
@@ -165,8 +241,29 @@ export default function HeroSection({ stats }: { stats: Stats }) {
         >
           <div className="w-2 h-2 rounded-full bg-gold animate-pulse" />
           <span className="text-xs font-mono text-gold tracking-widest uppercase">
-            AI-Powered Signal Engine v2.7
+            AI-Powered Signal Engine v3.0
           </span>
+        </motion.div>
+
+        {/* Market Sentiment Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-mono font-bold border ${
+            isBull
+              ? "bg-signal-buy/10 border-signal-buy/30 text-signal-buy"
+              : "bg-signal-sell/10 border-signal-sell/30 text-signal-sell"
+          }`}
+        >
+          {isBull ? (
+            <TrendingUp className="w-4 h-4" />
+          ) : (
+            <TrendingDown className="w-4 h-4" />
+          )}
+          {isBull
+            ? `📈 BULL MARKET — ${bullPct}% of scanned coins trending up`
+            : "📉 BEAR MARKET — Shorting opportunities dominate"}
         </motion.div>
 
         <motion.h1
@@ -177,35 +274,36 @@ export default function HeroSection({ stats }: { stats: Stats }) {
         >
           <span className="block text-foreground">PRECISION.</span>
           <span className="block gold-gradient">PROFIT.</span>
-          <span className="block text-foreground/90">POWER.</span>
+          <span className="block text-foreground/75">POWER.</span>
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-foreground/90 text-lg md:text-xl max-w-2xl mx-auto mb-12"
+          className="text-foreground/65 text-lg md:text-xl max-w-2xl mx-auto mb-12"
         >
           AI-driven spot trading signals with institutional-grade accuracy.
-          Real-time analysis across 900+ crypto pairs — powered by Trocadero
-          77's proprietary signal engine.
+          Real-time analysis across BingX spot markets — powered by Trocadero
+          77&apos;s proprietary signal engine with auto-learning.
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto"
         >
           {statItems.map((item, i) => (
             <motion.div
               key={item.label}
+              data-ocid={`hero.stat.item.${i + 1}`}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5 + i * 0.1 }}
               className="glass-card gold-border-glow rounded-xl p-4 text-center"
             >
-              <item.icon className="w-5 h-5 text-gold mx-auto mb-2" />
+              <item.icon className="w-5 h-5 mx-auto mb-2 text-gold" />
               <div className="text-2xl md:text-3xl font-mono font-bold gold-text">
                 <Counter
                   target={item.val}
@@ -213,11 +311,125 @@ export default function HeroSection({ stats }: { stats: Stats }) {
                   decimals={item.dec}
                 />
               </div>
-              <div className="text-xs text-foreground/90 mt-1">
+              <div className="text-xs text-foreground/60 mt-1">
                 {item.label}
               </div>
             </motion.div>
           ))}
+          {/* Session Wins stat */}
+          {(stats.sessionTotal ?? 0) > 0 && (
+            <motion.div
+              data-ocid="hero.stat.item.6"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1.0 }}
+              className="glass-card gold-border-glow rounded-xl p-4 text-center"
+            >
+              <Brain className="w-5 h-5 mx-auto mb-2 text-gold" />
+              <div className="text-2xl font-mono font-bold gold-text">
+                {stats.sessionWins}/{stats.sessionTotal}
+              </div>
+              <div className="text-xs text-foreground/60 mt-1">
+                Session Wins
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* AI Intelligence Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.85 }}
+          className="mt-8 max-w-3xl mx-auto rounded-2xl p-5"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(97% 0.015 290 / 0.9) 0%, oklch(96% 0.02 270 / 0.9) 100%)",
+            border: "1px solid oklch(82% 0.08 290)",
+            boxShadow: "0 4px 24px oklch(60% 0.15 290 / 0.08)",
+          }}
+          data-ocid="hero.ai.panel"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Brain
+              className="w-4 h-4"
+              style={{ color: "oklch(45% 0.18 290)" }}
+            />
+            <span
+              className="text-xs font-mono font-bold tracking-widest uppercase"
+              style={{ color: "oklch(45% 0.18 290)" }}
+            >
+              AI Intelligence Layer
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Sentiment badge */}
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              style={{
+                background: sc.bg,
+                border: `1px solid ${sc.border}`,
+              }}
+            >
+              <span className="text-lg leading-none">{sc.emoji}</span>
+              <div>
+                <div
+                  className="text-xs font-mono font-bold"
+                  style={{ color: sc.color }}
+                >
+                  {sc.label}
+                </div>
+                <div className="text-[10px] font-mono text-foreground/50">
+                  Market Sentiment
+                </div>
+              </div>
+            </div>
+
+            {/* Excluded by reputation */}
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              style={{
+                background: "oklch(97% 0.01 290)",
+                border: "1px solid oklch(88% 0.05 290)",
+              }}
+            >
+              <span className="text-lg leading-none">🛡️</span>
+              <div>
+                <div
+                  className="text-xs font-mono font-bold"
+                  style={{ color: "oklch(40% 0.15 290)" }}
+                >
+                  {excludedByReputation} coins filtered
+                </div>
+                <div className="text-[10px] font-mono text-foreground/50">
+                  By AI Reputation
+                </div>
+              </div>
+            </div>
+
+            {/* Auto-learned outcomes */}
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              style={{
+                background: "oklch(97% 0.015 270)",
+                border: "1px solid oklch(85% 0.07 270)",
+              }}
+            >
+              <span className="text-lg leading-none">🤖</span>
+              <div>
+                <div
+                  className="text-xs font-mono font-bold"
+                  style={{ color: "oklch(40% 0.18 270)" }}
+                >
+                  {autoLearned} auto-learned
+                </div>
+                <div className="text-[10px] font-mono text-foreground/50">
+                  Outcomes Recorded
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -226,7 +438,7 @@ export default function HeroSection({ stats }: { stats: Stats }) {
           transition={{ delay: 1.2 }}
           className="mt-16 flex flex-col items-center gap-2"
         >
-          <span className="text-xs font-mono text-foreground/85 tracking-widest uppercase">
+          <span className="text-xs font-mono text-foreground/50 tracking-widest uppercase">
             Scroll to Signals
           </span>
           <div className="w-px h-12 bg-gradient-to-b from-gold/40 to-transparent" />
