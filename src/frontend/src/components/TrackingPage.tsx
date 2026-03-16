@@ -1,11 +1,13 @@
 import { Activity, TrendingDown, TrendingUp, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import type { SignalData } from "../hooks/useCryptoSignals";
 import {
   incrementAutoLearnCount,
   recordOutcome,
 } from "../hooks/useLearningEngine";
 import type { TrackedTrade } from "../hooks/useTrackTrades";
+import SignalDetail from "./SignalDetail";
 
 function fmtPrice(p: number) {
   if (p >= 1000)
@@ -25,14 +27,60 @@ function formatElapsed(ms: number): string {
   return `${s}s`;
 }
 
+function tradeToSignal(
+  trade: TrackedTrade,
+  livePrices: Record<string, number>,
+): SignalData {
+  const isBuy = trade.direction === "long";
+  const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
+  const tpRange = trade.takeProfit - trade.entryPrice;
+  const rawProgress = isBuy
+    ? ((currentPrice - trade.entryPrice) / tpRange) * 100
+    : ((trade.entryPrice - currentPrice) / Math.abs(tpRange)) * 100;
+  const hitTarget = rawProgress >= 100;
+
+  return {
+    id: trade.signalId,
+    coinName: trade.coinName,
+    symbol: trade.symbol,
+    currentPrice,
+    entryPrice: trade.entryPrice,
+    takeProfit: trade.takeProfit,
+    stopLoss: trade.stopLoss,
+    confidence: 88,
+    estimatedHours: 12,
+    direction: trade.direction,
+    reasoning: `${trade.coinName} was selected for tracking. Technical indicators showed a strong ${
+      isBuy ? "bullish" : "bearish"
+    } setup at entry. Monitor live price against your take profit and stop loss levels.`,
+    profitPercent: trade.profitPercent,
+    hitTarget,
+    timestamp: trade.trackedAt,
+    rsi: isBuy ? 38 : 67,
+    macd: isBuy ? "bullish" : "bearish",
+    volume: "medium",
+    trend: isBuy ? "Uptrend" : "Downtrend",
+    safeExitPrice: trade.safeExitPrice,
+    maxHoldHours: 24,
+    learningBoost: 0,
+  };
+}
+
 interface TradeCardProps {
   trade: TrackedTrade;
   onStop: () => void;
+  onViewDetails: () => void;
   livePrices: Record<string, number>;
   now: number;
 }
 
-function TradeTrackCard({ trade, onStop, livePrices, now }: TradeCardProps) {
+function TradeTrackCard({
+  trade,
+  onStop,
+  onViewDetails,
+  livePrices,
+  now,
+}: TradeCardProps) {
   const isBuy = trade.direction === "long";
   const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
   const elapsed = now - trade.trackedAt;
@@ -65,7 +113,7 @@ function TradeTrackCard({ trade, onStop, livePrices, now }: TradeCardProps) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      className="rounded-2xl overflow-hidden w-full"
+      className="rounded-2xl overflow-hidden w-full cursor-pointer"
       style={{
         background: "#ffffff",
         border: hitTP
@@ -75,6 +123,7 @@ function TradeTrackCard({ trade, onStop, livePrices, now }: TradeCardProps) {
           ? "0 8px 32px rgba(0,180,80,0.12)"
           : "0 6px 20px rgba(0,0,0,0.08)",
       }}
+      onClick={onViewDetails}
       data-ocid="tracking.card"
     >
       {/* Top bar */}
@@ -260,12 +309,15 @@ function TradeTrackCard({ trade, onStop, livePrices, now }: TradeCardProps) {
           </div>
           <button
             type="button"
-            onClick={onStop}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStop();
+            }}
             data-ocid="tracking.stop_button"
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
           >
             <X className="w-3 h-3" />
-            Stop Tracking
+            Stop
           </button>
         </div>
       </div>
@@ -287,6 +339,7 @@ export default function TrackingPage({
   onAutoLearnUpdate,
 }: Props) {
   const [now, setNow] = useState(Date.now());
+  const [detailSignal, setDetailSignal] = useState<SignalData | null>(null);
   // Track which signalIds have already been auto-recorded to avoid duplicates
   const autoRecordedRef = useRef<Set<string>>(new Set());
 
@@ -368,7 +421,7 @@ export default function TrackingPage({
         </div>
         <p className="text-sm text-foreground/60 font-mono">
           Manually track trades you&apos;ve entered. Live price updates every
-          second. AI auto-learns from TP/SL hits.
+          second. Tap any card to open full trade details.
         </p>
       </div>
 
@@ -415,6 +468,9 @@ export default function TrackingPage({
                       key={trade.signalId}
                       trade={trade}
                       onStop={() => onStopTracking(trade.signalId)}
+                      onViewDetails={() =>
+                        setDetailSignal(tradeToSignal(trade, livePrices))
+                      }
                       livePrices={livePrices}
                       now={now}
                     />
@@ -443,6 +499,9 @@ export default function TrackingPage({
                       key={trade.signalId}
                       trade={trade}
                       onStop={() => onStopTracking(trade.signalId)}
+                      onViewDetails={() =>
+                        setDetailSignal(tradeToSignal(trade, livePrices))
+                      }
                       livePrices={livePrices}
                       now={now}
                     />
@@ -453,6 +512,12 @@ export default function TrackingPage({
           )}
         </div>
       )}
+
+      <SignalDetail
+        signal={detailSignal}
+        onClose={() => setDetailSignal(null)}
+        onMarkAccuracy={(_id, _hit) => setDetailSignal(null)}
+      />
     </div>
   );
 }
