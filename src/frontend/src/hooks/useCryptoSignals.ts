@@ -28,6 +28,7 @@ export interface SignalData {
   safeExitPrice: number;
   maxHoldHours: number;
   learningBoost: number;
+  priceChange24h?: number;
 }
 
 // Fallback coin list with realistic price change and volume data
@@ -444,6 +445,7 @@ function generateSignals(
       safeExitPrice,
       maxHoldHours,
       learningBoost: learningBoostVal + reputationBoost,
+      priceChange24h: coin.priceChange24h,
     };
 
     signals.push(signal);

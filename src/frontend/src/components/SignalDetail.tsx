@@ -342,7 +342,7 @@ export default function SignalDetail({
   onMarkAccuracy,
 }: Props) {
   const [pricePulse, setPricePulse] = useState(false);
-  // Bug 7: Compute real historical win rate from learning engine
+  // Compute real historical win rate from learning engine
   const allLearningData = getAllData();
   const symbolData = signal ? allLearningData[signal.symbol] : undefined;
   const historicalWinRate =
@@ -355,6 +355,10 @@ export default function SignalDetail({
   const signalOpenTimeRef = useRef<number>(Date.now());
   const [secondsElapsed, setSecondsElapsed] = useState(0);
 
+  // baseSecsToTP: computed from momentum, resets when price/change24h updates
+  const [_baseSecsToTP, setBaseSecsToTP] = useState<number | null>(null);
+  const [countdownSecs, setCountdownSecs] = useState<number | null>(null);
+
   // Reset timer when a new signal opens
   useEffect(() => {
     if (signal) {
@@ -363,7 +367,7 @@ export default function SignalDetail({
     }
   }, [signal]);
 
-  // Live countdown ticker
+  // Live "updated Xs ago" ticker
   useEffect(() => {
     if (!signal) return;
     const iv = setInterval(() => {
@@ -373,6 +377,54 @@ export default function SignalDetail({
     }, 1000);
     return () => clearInterval(iv);
   }, [signal]);
+
+  // Recompute baseSecsToTP whenever signal price or momentum changes
+  useEffect(() => {
+    if (!signal) {
+      setBaseSecsToTP(null);
+      setCountdownSecs(null);
+      return;
+    }
+
+    const isBuyDir = signal.direction === "long";
+    // momentum toward TP: positive = moving toward TP
+    const rawChange = signal.priceChange24h ?? 0;
+    const momentumPctPer24h = isBuyDir ? rawChange : -rawChange;
+
+    if (momentumPctPer24h <= 0) {
+      // moving away from TP
+      setBaseSecsToTP(null);
+      setCountdownSecs(null);
+      return;
+    }
+
+    const distToTP = isBuyDir
+      ? ((signal.takeProfit - signal.currentPrice) / signal.currentPrice) * 100
+      : ((signal.currentPrice - signal.takeProfit) / signal.currentPrice) * 100;
+
+    if (distToTP <= 0) {
+      // Already at or past TP
+      setBaseSecsToTP(0);
+      setCountdownSecs(0);
+      return;
+    }
+
+    const momentumPctPerSec = momentumPctPer24h / (24 * 3600);
+    const secs = Math.round(distToTP / momentumPctPerSec);
+    setBaseSecsToTP(secs);
+    setCountdownSecs(secs);
+  }, [signal]);
+
+  // Tick countdownSecs down each second -- always running, functional update handles null/0
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setCountdownSecs((prev) => {
+        if (prev === null || prev <= 0) return prev;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     if (!signal) return;
@@ -424,19 +476,6 @@ export default function SignalDetail({
       ? ((signal.takeProfit - signal.currentPrice) / signal.currentPrice) * 100
       : ((signal.currentPrice - signal.takeProfit) / signal.currentPrice) * 100
     : 0;
-
-  // Live countdown
-  const remainingHours = signal
-    ? Math.max(0, signal.estimatedHours - secondsElapsed / 3600)
-    : 0;
-  const remainingMins = Math.floor((remainingHours % 1) * 60);
-  const remainingHoursInt = Math.floor(remainingHours);
-  const countdownLabel =
-    remainingHours < 1 / 60
-      ? "< 1m remaining"
-      : remainingHours < 1
-        ? `${remainingMins}m remaining`
-        : `${remainingHoursInt}h ${remainingMins}m remaining`;
 
   // Price moving toward or away from TP
   const movingTowardTP = isBuy
@@ -728,12 +767,49 @@ export default function SignalDetail({
                       Time to TP
                     </span>
                   </div>
-                  <div className="text-lg font-mono font-bold text-foreground">
-                    {countdownLabel}
-                  </div>
-                  <div className="text-xs text-foreground/45 mt-0.5">
-                    Est. {signal.estimatedHours}h total
-                  </div>
+                  {countdownSecs === null ? (
+                    // Momentum reversing — moving away from TP
+                    <div className="mt-1">
+                      <div className="text-sm font-mono font-semibold text-foreground/70">
+                        Recalculating...
+                      </div>
+                      <div className="text-xs text-signal-sell mt-0.5">
+                        momentum reversing
+                      </div>
+                    </div>
+                  ) : countdownSecs === 0 ? (
+                    <div className="text-sm font-mono font-bold text-signal-buy mt-1">
+                      🎯 Target reached!
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-0.5 mt-1">
+                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
+                          {String(Math.floor(countdownSecs / 3600)).padStart(
+                            2,
+                            "0",
+                          )}
+                        </span>
+                        <span className="text-2xl font-mono font-bold text-gold animate-pulse mx-0.5">
+                          :
+                        </span>
+                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
+                          {String(
+                            Math.floor((countdownSecs % 3600) / 60),
+                          ).padStart(2, "0")}
+                        </span>
+                        <span className="text-2xl font-mono font-bold text-gold animate-pulse mx-0.5">
+                          :
+                        </span>
+                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
+                          {String(countdownSecs % 60).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <div className="text-xs text-foreground/45 mt-0.5">
+                        Based on current momentum
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div
                   className="rounded-xl border border-border p-4"
