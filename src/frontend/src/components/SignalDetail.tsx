@@ -172,6 +172,48 @@ function fmtTime(ts: number) {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
+/**
+ * Always returns a positive integer (seconds). Returns 0 only if already at TP.
+ * Uses absolute 24h price change as daily volatility (direction-independent).
+ * Minimum guaranteed volatility: 1.5%/day. Capped at 14 days.
+ */
+function computeSecsToTP(signal: SignalData): number {
+  const isBuyDir = signal.direction === "long";
+
+  const distToTP = isBuyDir
+    ? Math.max(
+        0,
+        ((signal.takeProfit - signal.currentPrice) / signal.currentPrice) * 100,
+      )
+    : Math.max(
+        0,
+        ((signal.currentPrice - signal.takeProfit) / signal.currentPrice) * 100,
+      );
+
+  if (distToTP <= 0) return 0;
+
+  // Use absolute value of 24h change as daily volatility (regardless of direction)
+  const absChange = Math.abs(signal.priceChange24h ?? 0);
+  const dailyVolatilityPct = Math.max(absChange, 1.5);
+
+  const secs = Math.round((distToTP / dailyVolatilityPct) * 86400);
+
+  // Cap at 14 days
+  return Math.min(secs, 1209600);
+}
+
+/** Format seconds into a countdown string: "Xd HH:MM:SS" or "HH:MM:SS" */
+function fmtCountdown(secs: number): string {
+  if (secs <= 0) return "00:00:00";
+  const days = Math.floor(secs / 86400);
+  const remaining = secs % 86400;
+  const hh = String(Math.floor(remaining / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((remaining % 3600) / 60)).padStart(2, "0");
+  const ss = String(remaining % 60).padStart(2, "0");
+  if (days > 0) return `${days}d ${hh}:${mm}:${ss}`;
+  return `${hh}:${mm}:${ss}`;
+}
+
 function PriceChart({ signal }: { signal: SignalData }) {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -355,9 +397,10 @@ export default function SignalDetail({
   const signalOpenTimeRef = useRef<number>(Date.now());
   const [secondsElapsed, setSecondsElapsed] = useState(0);
 
-  // baseSecsToTP: computed from momentum, resets when price/change24h updates
-  const [_baseSecsToTP, setBaseSecsToTP] = useState<number | null>(null);
-  const [countdownSecs, setCountdownSecs] = useState<number | null>(null);
+  // Initialize countdown immediately -- always has a value
+  const [countdownSecs, setCountdownSecs] = useState<number>(() =>
+    signal ? computeSecsToTP(signal) : 3600,
+  );
 
   // Reset timer when a new signal opens
   useEffect(() => {
@@ -378,48 +421,17 @@ export default function SignalDetail({
     return () => clearInterval(iv);
   }, [signal]);
 
-  // Recompute baseSecsToTP whenever signal price or momentum changes
+  // Recompute countdown whenever signal price changes
   useEffect(() => {
-    if (!signal) {
-      setBaseSecsToTP(null);
-      setCountdownSecs(null);
-      return;
-    }
-
-    const isBuyDir = signal.direction === "long";
-    // momentum toward TP: positive = moving toward TP
-    const rawChange = signal.priceChange24h ?? 0;
-    const momentumPctPer24h = isBuyDir ? rawChange : -rawChange;
-
-    if (momentumPctPer24h <= 0) {
-      // moving away from TP
-      setBaseSecsToTP(null);
-      setCountdownSecs(null);
-      return;
-    }
-
-    const distToTP = isBuyDir
-      ? ((signal.takeProfit - signal.currentPrice) / signal.currentPrice) * 100
-      : ((signal.currentPrice - signal.takeProfit) / signal.currentPrice) * 100;
-
-    if (distToTP <= 0) {
-      // Already at or past TP
-      setBaseSecsToTP(0);
-      setCountdownSecs(0);
-      return;
-    }
-
-    const momentumPctPerSec = momentumPctPer24h / (24 * 3600);
-    const secs = Math.round(distToTP / momentumPctPerSec);
-    setBaseSecsToTP(secs);
-    setCountdownSecs(secs);
+    if (!signal) return;
+    setCountdownSecs(computeSecsToTP(signal));
   }, [signal]);
 
-  // Tick countdownSecs down each second -- always running, functional update handles null/0
+  // Tick countdownSecs down each second
   useEffect(() => {
     const iv = setInterval(() => {
       setCountdownSecs((prev) => {
-        if (prev === null || prev <= 0) return prev;
+        if (prev <= 0) return prev;
         return prev - 1;
       });
     }, 1000);
@@ -767,46 +779,24 @@ export default function SignalDetail({
                       Time to TP
                     </span>
                   </div>
-                  {countdownSecs === null ? (
-                    // Momentum reversing — moving away from TP
-                    <div className="mt-1">
-                      <div className="text-sm font-mono font-semibold text-foreground/70">
-                        Recalculating...
-                      </div>
-                      <div className="text-xs text-signal-sell mt-0.5">
-                        momentum reversing
-                      </div>
-                    </div>
-                  ) : countdownSecs === 0 ? (
+                  {countdownSecs === 0 ? (
                     <div className="text-sm font-mono font-bold text-signal-buy mt-1">
                       🎯 Target reached!
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-0.5 mt-1">
-                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
-                          {String(Math.floor(countdownSecs / 3600)).padStart(
-                            2,
-                            "0",
-                          )}
-                        </span>
-                        <span className="text-2xl font-mono font-bold text-gold animate-pulse mx-0.5">
-                          :
-                        </span>
-                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
-                          {String(
-                            Math.floor((countdownSecs % 3600) / 60),
-                          ).padStart(2, "0")}
-                        </span>
-                        <span className="text-2xl font-mono font-bold text-gold animate-pulse mx-0.5">
-                          :
-                        </span>
-                        <span className="text-2xl font-mono font-bold text-foreground tabular-nums">
-                          {String(countdownSecs % 60).padStart(2, "0")}
-                        </span>
+                      <div
+                        className="font-mono font-bold text-foreground tabular-nums mt-1"
+                        style={{
+                          fontSize:
+                            countdownSecs >= 86400 ? "1.1rem" : "1.5rem",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {fmtCountdown(countdownSecs)}
                       </div>
-                      <div className="text-xs text-foreground/45 mt-0.5">
-                        Based on current momentum
+                      <div className="text-xs text-foreground/45 mt-1">
+                        Est. remaining to TP
                       </div>
                     </div>
                   )}
