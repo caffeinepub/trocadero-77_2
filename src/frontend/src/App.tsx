@@ -94,6 +94,7 @@ export default function App() {
               marketSentiment={marketSentiment}
               excludedByReputation={excludedByReputation}
               autoLearned={autoLearned}
+              sessionWinRate={statsWithSession.winRate}
             />
             <FounderSection />
           </main>
@@ -107,6 +108,7 @@ export default function App() {
               marketSentiment={marketSentiment}
               excludedByReputation={excludedByReputation}
               autoLearned={autoLearned}
+              sessionWinRate={statsWithSession.winRate}
             />
             <EnterNowSection
               signals={signals}
@@ -175,6 +177,7 @@ export default function App() {
               marketSentiment={marketSentiment}
               excludedByReputation={excludedByReputation}
               autoLearned={autoLearned}
+              sessionWinRate={statsWithSession.winRate}
             />
             <FounderSection />
           </main>

@@ -16,6 +16,8 @@ import {
   getCoinReputation,
   hasLearningData,
 } from "../hooks/useLearningEngine";
+import { computeDumpRisk } from "../lib/aiEngine";
+import { getCoinNewsBadge, getCoinSentiment } from "../lib/newsEngine";
 import { ConfidenceRing } from "./ConfidenceRing";
 
 async function fetchWithTimeout(
@@ -200,6 +202,17 @@ function generateSearchSignal(
     safeExitPrice,
     maxHoldHours,
     learningBoost: learningBoostVal + reputationBoost,
+    dumpRisk: 0,
+    signalStrength: "strong" as const,
+    tpProbability: Math.min(99, Math.round(confidence * 0.9)),
+    newsBadge: getCoinNewsBadge(sym),
+    aiDumpRisk: computeDumpRisk({
+      rsi,
+      macd: macd === "bullish" ? 0.01 : macd === "bearish" ? -0.01 : 0,
+      macdSignal: 0,
+      priceChange24h: change24h,
+      signalType: direction === "long" ? "BUY" : "SELL",
+    }),
   };
 }
 

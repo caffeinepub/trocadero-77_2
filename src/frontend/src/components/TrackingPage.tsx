@@ -7,6 +7,7 @@ import {
   recordOutcome,
 } from "../hooks/useLearningEngine";
 import type { TrackedTrade } from "../hooks/useTrackTrades";
+import { checkTrackedTradeOutcome, computeTrailingStop } from "../lib/aiEngine";
 import SignalDetail from "./SignalDetail";
 
 function fmtPrice(p: number) {
@@ -63,6 +64,11 @@ function tradeToSignal(
     safeExitPrice: trade.safeExitPrice,
     maxHoldHours: 24,
     learningBoost: 0,
+    dumpRisk: 0,
+    signalStrength: "strong" as const,
+    tpProbability: 75,
+    newsBadge: null,
+    aiDumpRisk: "LOW" as const,
   };
 }
 
@@ -107,6 +113,58 @@ function TradeTrackCard({
 
   const priceDiffPct =
     ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
+
+  // AI: Dump risk detection
+  const priceDropPct =
+    trade.direction === "long"
+      ? ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
+      : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
+  const isDumpRisk = trade.direction === "long" && priceDropPct < -1.5;
+
+  // AI: Trailing safe exit
+  const trailingSafeExit =
+    trade.direction === "long" ? currentPrice * 0.97 : currentPrice * 1.03;
+
+  // AI: Compute trailing stop
+  const trailingStop = computeTrailingStop(
+    trade.direction === "long" ? "BUY" : "SELL",
+    trade.entryPrice,
+    trade.stopLoss,
+    currentPrice,
+    trade.takeProfit,
+  );
+  const hasTrailingStop =
+    trade.direction === "long"
+      ? trailingStop >
+        trade.stopLoss + (trade.entryPrice - trade.stopLoss) * 0.05
+      : trailingStop <
+        trade.stopLoss - (trade.stopLoss - trade.entryPrice) * 0.05;
+  const isTrailing =
+    trade.direction === "long" && currentPrice > trade.entryPrice;
+  const displaySafeExit = isTrailing ? trailingSafeExit : trade.safeExitPrice;
+
+  // AI: Auto TP alert
+  const tpProgress =
+    trade.direction === "long"
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((currentPrice - trade.entryPrice) /
+              (trade.takeProfit - trade.entryPrice)) *
+              100,
+          ),
+        )
+      : Math.min(
+          100,
+          Math.max(
+            0,
+            ((trade.entryPrice - currentPrice) /
+              (trade.entryPrice - trade.stopLoss)) *
+              100,
+          ),
+        );
+  const showTpAlert = tpProgress >= 70 && !hitTP;
 
   return (
     <motion.div
@@ -176,6 +234,34 @@ function TradeTrackCard({
             </div>
           </div>
         </div>
+
+        {/* AI: Dump Risk Warning */}
+        {isDumpRisk && !hitTP && (
+          <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-300 animate-pulse">
+            <span className="text-red-600 font-bold text-xs">
+              ⚠ Dump Risk Detected — Consider Safe Exit at{" "}
+              {fmtPrice(displaySafeExit)}
+            </span>
+          </div>
+        )}
+
+        {/* AI: Auto Take Profit Alert */}
+        {showTpAlert && (
+          <div
+            className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl border animate-pulse"
+            style={{
+              background: "oklch(96% 0.04 145)",
+              borderColor: "oklch(70% 0.15 145)",
+            }}
+          >
+            <span
+              className="font-bold text-xs"
+              style={{ color: "oklch(40% 0.18 145)" }}
+            >
+              💰 Take Profit Now ({Math.round(tpProgress)}%+ reached)
+            </span>
+          </div>
+        )}
 
         {/* TP Hit banner */}
         {hitTP && (
@@ -292,9 +378,37 @@ function TradeTrackCard({
               Safe Exit
             </div>
             <div className="text-sm font-mono font-bold text-foreground/80">
-              {fmtPrice(trade.safeExitPrice)}
+              {fmtPrice(displaySafeExit)}
+              {isTrailing ? (
+                <span className="text-[9px] ml-0.5 opacity-60">
+                  {" "}
+                  (trailing)
+                </span>
+              ) : null}
             </div>
           </div>
+          {hasTrailingStop && (
+            <div
+              className="rounded-lg px-3 py-2"
+              style={{
+                background: "oklch(96% 0.04 145)",
+                border: "1px solid oklch(80% 0.12 145)",
+              }}
+            >
+              <div
+                className="text-[10px] font-mono mb-0.5"
+                style={{ color: "oklch(50% 0.12 145)" }}
+              >
+                🔒 Trailing SL
+              </div>
+              <div
+                className="text-sm font-mono font-bold"
+                style={{ color: "oklch(38% 0.18 145)" }}
+              >
+                {fmtPrice(trailingStop)}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -348,31 +462,24 @@ export default function TrackingPage({
     return () => clearInterval(id);
   }, []);
 
-  // Auto-outcome recording when price crosses TP or SL
+  // Auto-outcome recording using AI engine checkTrackedTradeOutcome
   useEffect(() => {
     for (const trade of trackedTrades) {
       if (autoRecordedRef.current.has(trade.signalId)) continue;
-
       const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
-      const isBuy = trade.direction === "long";
-      const tpRange = trade.takeProfit - trade.entryPrice;
-      const rawProgress = isBuy
-        ? ((currentPrice - trade.entryPrice) / tpRange) * 100
-        : ((trade.entryPrice - currentPrice) / Math.abs(tpRange)) * 100;
-
-      const hitTP = rawProgress >= 100;
-      const hitSL = isBuy
-        ? currentPrice <= trade.stopLoss
-        : currentPrice >= trade.stopLoss;
-
-      if (hitTP) {
+      const result = checkTrackedTradeOutcome({
+        symbol: trade.symbol,
+        signalType: trade.direction === "long" ? "BUY" : "SELL",
+        entryPrice: trade.entryPrice,
+        tp: trade.takeProfit,
+        sl: trade.stopLoss,
+        currentPrice,
+        trackedAt: trade.trackedAt,
+        confidence: 88,
+      });
+      if (result) {
         autoRecordedRef.current.add(trade.signalId);
-        recordOutcome(trade.symbol, true);
-        incrementAutoLearnCount();
-        onAutoLearnUpdate?.();
-      } else if (hitSL) {
-        autoRecordedRef.current.add(trade.signalId);
-        recordOutcome(trade.symbol, false);
+        recordOutcome(trade.symbol, result === "WIN");
         incrementAutoLearnCount();
         onAutoLearnUpdate?.();
       }

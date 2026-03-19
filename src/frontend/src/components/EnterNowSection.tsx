@@ -12,6 +12,7 @@ import type { SignalData } from "../hooks/useCryptoSignals";
 import { hasLearningData } from "../hooks/useLearningEngine";
 import { ConfidenceRing } from "./ConfidenceRing";
 import { SignalCarousel } from "./SignalCarousel";
+import { SignalStrengthMeter } from "./SignalStrengthMeter";
 
 const THRESHOLD = 0.015;
 
@@ -89,6 +90,9 @@ function TradeCard({
             </div>
           </div>
           <ConfidenceRing value={signal.confidence} />
+        </div>
+        <div className="mt-2 mb-1">
+          <SignalStrengthMeter strength={signal.signalStrength ?? "strong"} />
         </div>
 
         {/* Urgency badge */}

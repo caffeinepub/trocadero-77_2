@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { getAIStats, getTopPerformingCoins } from "../lib/aiEngine";
+import { getLatestNewsItems, getMarketSentiment } from "../lib/newsEngine";
 
 interface Stats {
   totalSignals: number;
@@ -54,14 +56,347 @@ interface HeroProps {
   marketSentiment?: "bullish" | "bearish" | "neutral";
   excludedByReputation?: number;
   autoLearned?: number;
+  sessionWinRate?: number;
+}
+
+function AILearningDashboard({
+  excludedByReputation = 0,
+  autoLearned = 0,
+  sessionWinRate = 0,
+}: {
+  excludedByReputation?: number;
+  autoLearned?: number;
+  sessionWinRate?: number;
+}) {
+  const [aiStats, setAiStats] = useState(() => getAIStats());
+  const [newsItems, setNewsItems] = useState(() => getLatestNewsItems(6));
+  const [marketSent, setMarketSent] = useState(() => getMarketSentiment());
+  const [topCoins, setTopCoins] = useState(() => getTopPerformingCoins(3));
+
+  useEffect(() => {
+    const refresh = () => {
+      setAiStats(getAIStats());
+      setNewsItems(getLatestNewsItems(6));
+      setMarketSent(getMarketSentiment());
+      setTopCoins(getTopPerformingCoins(3));
+    };
+    const id = setInterval(refresh, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const phaseColor =
+    aiStats.marketPhase === "BULL"
+      ? "oklch(42% 0.18 145)"
+      : aiStats.marketPhase === "BEAR"
+        ? "oklch(45% 0.18 25)"
+        : "oklch(40% 0.06 240)";
+
+  const sentColor =
+    marketSent > 0.1
+      ? "oklch(42% 0.18 145)"
+      : marketSent < -0.1
+        ? "oklch(45% 0.18 25)"
+        : "oklch(40% 0.06 240)";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.85 }}
+      className="mt-8 max-w-3xl mx-auto rounded-2xl relative overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(97% 0.015 290 / 0.9) 0%, oklch(96% 0.02 270 / 0.9) 100%)",
+        border: "1px solid oklch(82% 0.08 290)",
+        boxShadow:
+          "0 4px 24px oklch(60% 0.15 290 / 0.15), 0 0 0 1px oklch(78% 0.08 290)",
+      }}
+      data-ocid="hero.ai.panel"
+    >
+      {/* Circuit breaker warning */}
+      {aiStats.circuitActive && (
+        <div className="px-5 pt-4">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-300 animate-pulse">
+            <span className="text-sm font-bold text-red-600">
+              ⛔ Circuit Breaker Active — AI paused new signals for{" "}
+              {aiStats.circuitMinLeft} min (3 consecutive losses detected)
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-4 h-4" style={{ color: "oklch(45% 0.18 290)" }} />
+          <span
+            className="text-xs font-mono font-bold tracking-widest uppercase"
+            style={{ color: "oklch(45% 0.18 290)" }}
+          >
+            AI Trading Intelligence
+          </span>
+          <span className="ml-auto text-[10px] font-mono text-foreground/40">
+            Live · updates 60s
+          </span>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.01 240)",
+              border: "1px solid oklch(85% 0.04 240)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+              Market Phase
+            </div>
+            <div
+              className="text-xs font-mono font-bold"
+              style={{ color: phaseColor }}
+            >
+              {aiStats.marketPhase === "BULL"
+                ? "🟢 BULL"
+                : aiStats.marketPhase === "BEAR"
+                  ? "🔴 BEAR"
+                  : "⚪ SIDEWAYS"}{" "}
+              <span className="opacity-60 font-normal">
+                {aiStats.marketPhaseConfidence}%
+              </span>
+            </div>
+          </div>
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.01 240)",
+              border: "1px solid oklch(85% 0.04 240)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+              AI Win Rate
+            </div>
+            <div className="text-xs font-mono font-bold text-foreground/80">
+              {aiStats.winRate}%{" "}
+              <span className="opacity-50 font-normal">(last 50)</span>
+            </div>
+          </div>
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.01 240)",
+              border: "1px solid oklch(85% 0.04 240)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+              Auto-Threshold
+            </div>
+            <div className="text-xs font-mono font-bold text-foreground/80">
+              {aiStats.currentThreshold}%{" "}
+              <span
+                style={{ color: "oklch(45% 0.18 290)" }}
+                className="font-normal"
+              >
+                ↑
+              </span>
+            </div>
+          </div>
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.01 240)",
+              border: "1px solid oklch(85% 0.04 240)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+              Outcomes Learned
+            </div>
+            <div className="text-xs font-mono font-bold text-foreground/80">
+              {aiStats.totalLearned + autoLearned}
+            </div>
+          </div>
+        </div>
+
+        {/* News sentiment + top coins row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.02 200)",
+              border: "1px solid oklch(85% 0.06 200)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-1">
+              📰 News Sentiment
+            </div>
+            <div
+              className="text-xs font-mono font-bold"
+              style={{ color: sentColor }}
+            >
+              {marketSent > 0.1
+                ? "Positive 🟢"
+                : marketSent < -0.1
+                  ? "Negative 🔴"
+                  : "Neutral ⚪"}
+            </div>
+            {newsItems.length > 0 && (
+              <div className="text-[10px] font-mono text-foreground/55 mt-1 truncate">
+                {newsItems[0].title}
+              </div>
+            )}
+          </div>
+          <div
+            className="rounded-xl px-3 py-2.5"
+            style={{
+              background: "oklch(97% 0.01 240)",
+              border: "1px solid oklch(85% 0.04 240)",
+            }}
+          >
+            <div className="text-[10px] font-mono text-foreground/50 mb-1">
+              Top Performing Coins
+            </div>
+            {topCoins.length > 0 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {topCoins.map((c) => (
+                  <span
+                    key={c.symbol}
+                    className="text-[10px] font-mono font-bold"
+                    style={{ color: "oklch(42% 0.18 145)" }}
+                  >
+                    {c.symbol} {Math.round(c.winRate * 100)}%
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[10px] font-mono text-foreground/40">
+                Learning from trades...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+            style={{
+              background: "oklch(96% 0.04 145)",
+              border: "1px solid oklch(80% 0.12 145)",
+            }}
+          >
+            <span className="text-sm">📈</span>
+            <div>
+              <div
+                className="text-xs font-mono font-bold"
+                style={{ color: "oklch(38% 0.18 145)" }}
+              >
+                {sessionWinRate}% session
+              </div>
+              <div className="text-[10px] text-foreground/45">Win Rate</div>
+            </div>
+          </div>
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+            style={{
+              background: "oklch(97% 0.015 270)",
+              border: "1px solid oklch(85% 0.07 270)",
+            }}
+          >
+            <span className="text-sm">🛡️</span>
+            <div>
+              <div
+                className="text-xs font-mono font-bold"
+                style={{ color: "oklch(40% 0.15 290)" }}
+              >
+                {excludedByReputation + aiStats.filteredCoins} filtered
+              </div>
+              <div className="text-[10px] text-foreground/45">AI Blocked</div>
+            </div>
+          </div>
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl col-span-2 sm:col-span-1"
+            style={{
+              background: aiStats.circuitActive
+                ? "oklch(96% 0.04 25)"
+                : "oklch(96% 0.04 145)",
+              border: `1px solid ${aiStats.circuitActive ? "oklch(80% 0.12 25)" : "oklch(80% 0.12 145)"}`,
+            }}
+          >
+            <span className="text-sm">⚡</span>
+            <div>
+              <div
+                className="text-xs font-mono font-bold"
+                style={{
+                  color: aiStats.circuitActive
+                    ? "oklch(38% 0.18 25)"
+                    : "oklch(38% 0.18 145)",
+                }}
+              >
+                Circuit Breaker: {aiStats.circuitActive ? "ON 🔴" : "OFF 🟢"}
+              </div>
+              <div className="text-[10px] text-foreground/45">
+                Protection System
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live news feed */}
+        {newsItems.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[10px] font-mono text-foreground/40 uppercase tracking-wider mb-2">
+              Live News Feed
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {newsItems.map((item) => (
+                <a
+                  key={item.url || item.title}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-black/5 transition-colors cursor-pointer block"
+                  style={{
+                    background: "oklch(97% 0.01 240)",
+                    border: "1px solid oklch(90% 0.02 240)",
+                  }}
+                >
+                  <span
+                    className="text-[10px] font-mono font-bold mt-0.5 flex-shrink-0"
+                    style={{
+                      color:
+                        item.sentiment > 0.1
+                          ? "oklch(42% 0.18 145)"
+                          : item.sentiment < -0.1
+                            ? "oklch(45% 0.18 25)"
+                            : "oklch(50% 0.06 240)",
+                    }}
+                  >
+                    {item.sentiment > 0.1
+                      ? "+"
+                      : item.sentiment < -0.1
+                        ? "−"
+                        : "·"}
+                  </span>
+                  <span className="text-[10px] font-mono text-foreground/70 leading-snug line-clamp-1">
+                    {item.title}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
 }
 
 export default function HeroSection({
   stats,
   signals,
-  marketSentiment = "neutral",
+  marketSentiment: _marketSentiment = "neutral",
   excludedByReputation = 0,
   autoLearned = 0,
+  sessionWinRate = 91,
 }: HeroProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
@@ -187,32 +522,6 @@ export default function HeroSection({
     { icon: Zap, label: "Win Rate", val: stats.winRate, suf: "%", dec: 0 },
   ];
 
-  const sentimentConfig = {
-    bullish: {
-      emoji: "🟢",
-      label: "Bullish Market",
-      bg: "oklch(96% 0.04 145)",
-      border: "oklch(80% 0.12 145)",
-      color: "oklch(38% 0.18 145)",
-    },
-    bearish: {
-      emoji: "🔴",
-      label: "Bearish Market",
-      bg: "oklch(96% 0.04 25)",
-      border: "oklch(80% 0.12 25)",
-      color: "oklch(38% 0.18 25)",
-    },
-    neutral: {
-      emoji: "⚪",
-      label: "Neutral Market",
-      bg: "oklch(96% 0.01 240)",
-      border: "oklch(80% 0.04 240)",
-      color: "oklch(38% 0.06 240)",
-    },
-  };
-
-  const sc = sentimentConfig[marketSentiment];
-
   return (
     <section
       id="hero"
@@ -336,101 +645,12 @@ export default function HeroSection({
           )}
         </motion.div>
 
-        {/* AI Intelligence Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.85 }}
-          className="mt-8 max-w-3xl mx-auto rounded-2xl p-5"
-          style={{
-            background:
-              "linear-gradient(135deg, oklch(97% 0.015 290 / 0.9) 0%, oklch(96% 0.02 270 / 0.9) 100%)",
-            border: "1px solid oklch(82% 0.08 290)",
-            boxShadow: "0 4px 24px oklch(60% 0.15 290 / 0.08)",
-          }}
-          data-ocid="hero.ai.panel"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Brain
-              className="w-4 h-4"
-              style={{ color: "oklch(45% 0.18 290)" }}
-            />
-            <span
-              className="text-xs font-mono font-bold tracking-widest uppercase"
-              style={{ color: "oklch(45% 0.18 290)" }}
-            >
-              AI Intelligence Layer
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Sentiment badge */}
-            <div
-              className="flex items-center gap-2 px-4 py-3 rounded-xl"
-              style={{
-                background: sc.bg,
-                border: `1px solid ${sc.border}`,
-              }}
-            >
-              <span className="text-lg leading-none">{sc.emoji}</span>
-              <div>
-                <div
-                  className="text-xs font-mono font-bold"
-                  style={{ color: sc.color }}
-                >
-                  {sc.label}
-                </div>
-                <div className="text-[10px] font-mono text-foreground/50">
-                  Market Sentiment
-                </div>
-              </div>
-            </div>
-
-            {/* Excluded by reputation */}
-            <div
-              className="flex items-center gap-2 px-4 py-3 rounded-xl"
-              style={{
-                background: "oklch(97% 0.01 290)",
-                border: "1px solid oklch(88% 0.05 290)",
-              }}
-            >
-              <span className="text-lg leading-none">🛡️</span>
-              <div>
-                <div
-                  className="text-xs font-mono font-bold"
-                  style={{ color: "oklch(40% 0.15 290)" }}
-                >
-                  {excludedByReputation} coins filtered
-                </div>
-                <div className="text-[10px] font-mono text-foreground/50">
-                  By AI Reputation
-                </div>
-              </div>
-            </div>
-
-            {/* Auto-learned outcomes */}
-            <div
-              className="flex items-center gap-2 px-4 py-3 rounded-xl"
-              style={{
-                background: "oklch(97% 0.015 270)",
-                border: "1px solid oklch(85% 0.07 270)",
-              }}
-            >
-              <span className="text-lg leading-none">🤖</span>
-              <div>
-                <div
-                  className="text-xs font-mono font-bold"
-                  style={{ color: "oklch(40% 0.18 270)" }}
-                >
-                  {autoLearned} auto-learned
-                </div>
-                <div className="text-[10px] font-mono text-foreground/50">
-                  Outcomes Recorded
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        {/* AI Learning Dashboard */}
+        <AILearningDashboard
+          excludedByReputation={excludedByReputation}
+          autoLearned={autoLearned}
+          sessionWinRate={sessionWinRate}
+        />
 
         <motion.div
           initial={{ opacity: 0 }}

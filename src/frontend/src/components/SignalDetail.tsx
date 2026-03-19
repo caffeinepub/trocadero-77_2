@@ -29,6 +29,8 @@ import {
 } from "recharts";
 import type { SignalData } from "../hooks/useCryptoSignals";
 import { getAllData } from "../hooks/useLearningEngine";
+import { getAIStats, getConfidenceBreakdown } from "../lib/aiEngine";
+import { getCoinSentiment, getLatestNewsItems } from "../lib/newsEngine";
 
 const SYMBOL_TO_CG_ID: Record<string, string> = {
   BTC: "bitcoin",
@@ -202,16 +204,13 @@ function computeSecsToTP(signal: SignalData): number {
   return Math.min(secs, 1209600);
 }
 
-/** Format seconds into a countdown string: "Xd HH:MM:SS" or "HH:MM:SS" */
+/** Format seconds into a countdown string: "XXh MM:SS" where XX is total hours */
 function fmtCountdown(secs: number): string {
-  if (secs <= 0) return "00:00:00";
-  const days = Math.floor(secs / 86400);
-  const remaining = secs % 86400;
-  const hh = String(Math.floor(remaining / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((remaining % 3600) / 60)).padStart(2, "0");
-  const ss = String(remaining % 60).padStart(2, "0");
-  if (days > 0) return `${days}d ${hh}:${mm}:${ss}`;
-  return `${hh}:${mm}:${ss}`;
+  if (secs <= 0) return "0h 00:00";
+  const totalHours = Math.floor(secs / 3600);
+  const mm = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return `${totalHours}h ${mm}:${ss}`;
 }
 
 function PriceChart({ signal }: { signal: SignalData }) {
@@ -788,8 +787,7 @@ export default function SignalDetail({
                       <div
                         className="font-mono font-bold text-foreground tabular-nums mt-1"
                         style={{
-                          fontSize:
-                            countdownSecs >= 86400 ? "1.1rem" : "1.5rem",
+                          fontSize: "1.5rem",
                           lineHeight: 1.2,
                         }}
                       >
@@ -817,10 +815,233 @@ export default function SignalDetail({
                   <div className="text-xs text-foreground/65">
                     Confidence: {signal.confidence}%
                   </div>
+                  {/* Dump Risk */}
+                  {(() => {
+                    const risk = signal.dumpRisk ?? 0;
+                    if (risk > 0.5)
+                      return (
+                        <div className="mt-1.5 text-xs font-mono font-bold text-red-500">
+                          Dump Risk: High 🔴
+                        </div>
+                      );
+                    if (risk > 0.3)
+                      return (
+                        <div className="mt-1.5 text-xs font-mono font-bold text-amber-500">
+                          Dump Risk: Medium ⚠
+                        </div>
+                      );
+                    return (
+                      <div className="mt-1.5 text-xs font-mono font-bold text-green-600">
+                        Dump Risk: Low ✓
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
+              {/* AI Analysis Section */}
+              {(() => {
+                const aiStats = getAIStats();
+                const tpProb = signal.tpProbability ?? 75;
+                const aiDumpRisk = signal.aiDumpRisk ?? "LOW";
+                const newsSentiment = getCoinSentiment(signal.symbol);
+                const macdNum =
+                  signal.macd === "bullish"
+                    ? 0.01
+                    : signal.macd === "bearish"
+                      ? -0.01
+                      : 0;
+                const breakdown = getConfidenceBreakdown(
+                  {
+                    rsi: signal.rsi,
+                    macd: macdNum,
+                    macdSignal: 0,
+                    volume24h: 10_000_000,
+                    priceChange24h: signal.priceChange24h ?? 0,
+                    symbol: signal.symbol,
+                    entryPrice: signal.entryPrice,
+                    tp: signal.takeProfit,
+                    sl: signal.stopLoss,
+                    signalType: signal.direction === "long" ? "BUY" : "SELL",
+                    timestamp: signal.timestamp,
+                  },
+                  signal.confidence,
+                  newsSentiment,
+                );
+                const newsItems = getLatestNewsItems(3).filter((n) =>
+                  n.coins.includes(signal.symbol),
+                );
+                const tpColor =
+                  tpProb >= 85
+                    ? "oklch(42% 0.18 145)"
+                    : tpProb >= 72
+                      ? "oklch(52% 0.15 60)"
+                      : "oklch(45% 0.18 25)";
+                const dumpColor =
+                  aiDumpRisk === "HIGH"
+                    ? "oklch(45% 0.18 25)"
+                    : aiDumpRisk === "MEDIUM"
+                      ? "oklch(52% 0.15 60)"
+                      : "oklch(42% 0.18 145)";
+                const phaseColor =
+                  aiStats.marketPhase === "BULL"
+                    ? "oklch(42% 0.18 145)"
+                    : aiStats.marketPhase === "BEAR"
+                      ? "oklch(45% 0.18 25)"
+                      : "oklch(40% 0.06 240)";
+                return (
+                  <div
+                    className="rounded-xl border p-4 space-y-4"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, oklch(97% 0.015 290 / 0.8) 0%, oklch(96% 0.02 270 / 0.8) 100%)",
+                      borderColor: "oklch(82% 0.08 290)",
+                    }}
+                    data-ocid="signal.ai.panel"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🤖</span>
+                      <span
+                        className="text-xs font-mono font-bold tracking-widest uppercase"
+                        style={{ color: "oklch(45% 0.18 290)" }}
+                      >
+                        AI Analysis
+                      </span>
+                    </div>
+
+                    {/* TP Hit Probability */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-mono text-foreground/70">
+                          TP Hit Probability
+                        </span>
+                        <span
+                          className="text-sm font-mono font-bold"
+                          style={{ color: tpColor }}
+                        >
+                          {tpProb}% chance TP hits
+                        </span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-black/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${tpProb}%`,
+                            background: tpColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Top Factors */}
+                    {breakdown.topFactors.length > 0 && (
+                      <div>
+                        <div className="text-xs font-mono text-foreground/60 mb-2">
+                          AI Confidence Factors
+                        </div>
+                        <div className="space-y-1">
+                          {breakdown.topFactors.slice(0, 3).map((f) => (
+                            <div
+                              key={f}
+                              className="text-xs font-mono flex items-center gap-1.5 text-foreground/80"
+                            >
+                              <span style={{ color: "oklch(45% 0.18 290)" }}>
+                                ›
+                              </span>
+                              {f}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Row: Dump Risk + Market Phase */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div
+                        className="rounded-lg px-3 py-2"
+                        style={{
+                          background: "oklch(97% 0.01 240)",
+                          border: "1px solid oklch(85% 0.04 240)",
+                        }}
+                      >
+                        <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+                          Dump Risk
+                        </div>
+                        <div
+                          className="text-xs font-mono font-bold"
+                          style={{ color: dumpColor }}
+                        >
+                          {aiDumpRisk === "HIGH"
+                            ? "🔴 HIGH"
+                            : aiDumpRisk === "MEDIUM"
+                              ? "🟡 MEDIUM"
+                              : "🟢 LOW"}
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-lg px-3 py-2"
+                        style={{
+                          background: "oklch(97% 0.01 240)",
+                          border: "1px solid oklch(85% 0.04 240)",
+                        }}
+                      >
+                        <div className="text-[10px] font-mono text-foreground/50 mb-0.5">
+                          Market Phase
+                        </div>
+                        <div
+                          className="text-xs font-mono font-bold"
+                          style={{ color: phaseColor }}
+                        >
+                          {aiStats.marketPhase === "BULL"
+                            ? "🟢 BULL"
+                            : aiStats.marketPhase === "BEAR"
+                              ? "🔴 BEAR"
+                              : "⚪ SIDEWAYS"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* News Headline */}
+                    {newsItems.length > 0 && (
+                      <div
+                        className="rounded-lg px-3 py-2"
+                        style={{
+                          background: "oklch(97% 0.02 200)",
+                          border: "1px solid oklch(85% 0.06 200)",
+                        }}
+                      >
+                        <div className="text-[10px] font-mono text-foreground/50 mb-1">
+                          📰 Latest News
+                        </div>
+                        <div className="text-xs font-mono text-foreground/80 line-clamp-2">
+                          {newsItems[0].title}
+                        </div>
+                        <div
+                          className="text-[10px] font-mono mt-1"
+                          style={{
+                            color:
+                              newsItems[0].sentiment > 0.1
+                                ? "oklch(42% 0.18 145)"
+                                : newsItems[0].sentiment < -0.1
+                                  ? "oklch(45% 0.18 25)"
+                                  : "oklch(50% 0.06 240)",
+                          }}
+                        >
+                          {newsItems[0].sentiment > 0.1
+                            ? "Positive sentiment"
+                            : newsItems[0].sentiment < -0.1
+                              ? "Negative sentiment"
+                              : "Neutral sentiment"}{" "}
+                          · {newsItems[0].source}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Reasoning */}
+
               <div
                 className="rounded-xl border p-4"
                 style={{

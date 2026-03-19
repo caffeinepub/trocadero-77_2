@@ -12,6 +12,7 @@ import type { SignalData } from "../hooks/useCryptoSignals";
 import { hasLearningData } from "../hooks/useLearningEngine";
 import { ConfidenceRing } from "./ConfidenceRing";
 import { SignalCarousel } from "./SignalCarousel";
+import { SignalStrengthMeter } from "./SignalStrengthMeter";
 
 function fmtPrice(p: number) {
   if (p >= 1000)
@@ -19,6 +20,71 @@ function fmtPrice(p: number) {
   if (p < 0.01) return `$${p.toFixed(6)}`;
   if (p < 1) return `$${p.toFixed(4)}`;
   return `$${p.toFixed(2)}`;
+}
+
+function TPProbabilityBadge({ value }: { value: number }) {
+  const color =
+    value >= 85
+      ? "bg-green-100 text-green-700 border-green-300"
+      : value >= 72
+        ? "bg-yellow-100 text-yellow-700 border-yellow-300"
+        : "bg-red-100 text-red-700 border-red-300";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${color}`}
+    >
+      TP: {value}%
+    </span>
+  );
+}
+
+function NewsBadge({
+  badge,
+}: {
+  badge: "positive" | "negative" | "trending" | null | undefined;
+}) {
+  if (!badge) return null;
+  if (badge === "positive")
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-green-50 text-green-700 border border-green-200">
+        📰+
+      </span>
+    );
+  if (badge === "negative")
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-50 text-red-700 border border-red-200">
+        📰−
+      </span>
+    );
+  if (badge === "trending")
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+        🔥 Trending
+      </span>
+    );
+  return null;
+}
+
+function DumpRiskDot({
+  risk,
+}: {
+  risk: "LOW" | "MEDIUM" | "HIGH" | undefined;
+}) {
+  if (!risk || risk === "LOW") return null;
+  const color =
+    risk === "HIGH"
+      ? "bg-red-500 text-red-700 border-red-300 bg-red-50"
+      : "bg-yellow-500 text-yellow-700 border-yellow-300 bg-yellow-50";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${color}`}
+    >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${risk === "HIGH" ? "bg-red-500" : "bg-yellow-500"}`}
+      />
+      {risk === "HIGH" ? "Dump Risk" : "Caution"}
+    </span>
+  );
 }
 
 function ActiveSignalCard({
@@ -85,6 +151,19 @@ function ActiveSignalCard({
           <ConfidenceRing value={signal.confidence} />
         </div>
 
+        {/* AI badges row */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {signal.tpProbability != null && (
+            <TPProbabilityBadge value={signal.tpProbability} />
+          )}
+          <NewsBadge badge={signal.newsBadge} />
+          <DumpRiskDot risk={signal.aiDumpRisk} />
+        </div>
+
+        <div className="mt-1 mb-2">
+          <SignalStrengthMeter strength={signal.signalStrength ?? "strong"} />
+        </div>
+
         <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4 flex-wrap">
           <div
             className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold ${
@@ -124,7 +203,9 @@ function ActiveSignalCard({
               className="rounded-lg bg-muted p-2 sm:p-2.5 text-center"
             >
               <div
-                className={`text-xs sm:text-sm font-mono font-bold truncate ${item.hi ? "text-gold" : "text-foreground"}`}
+                className={`text-xs sm:text-sm font-mono font-bold truncate ${
+                  item.hi ? "text-gold" : "text-foreground"
+                }`}
               >
                 {item.value}
               </div>
@@ -215,165 +296,70 @@ export default function SignalCardSection({
             LIVE SIGNALS
           </span>
         </div>
-        <h2 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold text-foreground text-center">
-          Trading <span className="gold-gradient">Signals</span>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground text-center">
+          Active Signals
         </h2>
-        <p className="text-foreground/65 max-w-lg mt-2 sm:mt-3 text-sm md:text-base text-center">
-          Swipe to browse signals, tap for full analysis.
-        </p>
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-xs font-mono text-foreground/50">
-            {signals.length} active signal{signals.length !== 1 ? "s" : ""}
-          </span>
-          {lastScanTime && (
-            <span className="text-xs font-mono text-foreground/40">
-              · Last scan: {lastScanTime.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
+        {lastScanTime && (
+          <p className="text-xs font-mono text-foreground/50 mt-2">
+            Updated {lastScanTime.toLocaleTimeString()}
+          </p>
+        )}
       </div>
 
-      {/* Always-visible Content */}
-      <div className="pb-8 sm:pb-12">
-        <div className="flex flex-col lg:flex-row gap-8 sm:gap-12 items-start">
-          {/* Left: carousel */}
-          <div className="flex-1 w-full">
-            {isLoading && signals.length === 0 ? (
-              <div className="space-y-4" data-ocid="signal.loading_state">
-                <Skeleton className="w-full h-56 sm:h-64 rounded-2xl" />
-                <Skeleton className="w-full h-56 sm:h-64 rounded-2xl" />
-              </div>
-            ) : signals.length === 0 ? (
-              <div
-                className="w-full flex flex-col items-center justify-center rounded-2xl border border-border gap-4 py-12 sm:py-16"
-                style={{
-                  background: "#ffffff",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                }}
-                data-ocid="signal.empty_state"
-              >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
-                  <TrendingUp className="w-7 h-7 sm:w-8 sm:h-8 text-gold" />
-                </div>
-                <div className="text-center">
-                  <div className="font-display text-base sm:text-lg mb-1 text-foreground">
-                    All Signals Reviewed
-                  </div>
-                  <div className="text-sm text-foreground/60">
-                    Rescan for new opportunities
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <SignalCarousel
-                signals={signals}
-                onSelectSignal={onSelectSignal}
-                renderCard={(signal) => (
-                  <ActiveSignalCard
-                    signal={signal}
-                    onClick={() => onSelectSignal(signal)}
-                    onTrack={onTrack}
-                    isTracked={trackedIds.has(signal.id)}
-                  />
-                )}
-              />
-            )}
+      {/* Carousel or Loading */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-64 w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : signals.length === 0 ? (
+        <div
+          className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed border-border"
+          style={{ background: "#ffffff" }}
+          data-ocid="signals.empty_state"
+        >
+          <div className="text-4xl mb-4">🔍</div>
+          <div className="font-display text-xl mb-2 text-foreground">
+            No signals found
           </div>
-
-          {/* Right: list */}
-          <div className="flex-1 space-y-3 w-full">
+          <div className="text-sm text-foreground/55 text-center max-w-xs">
+            The AI engine is filtering for only the highest-quality setups.
+            Check back after the next scan.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mb-4 hidden">
             <button
               type="button"
-              data-ocid="signal.list.toggle"
+              className="flex items-center gap-2 text-sm font-mono text-foreground/70 hover:text-foreground transition-colors"
               onClick={() => setIsListOpen((v) => !v)}
-              className="w-full flex items-center justify-between text-xs font-mono text-foreground/55 uppercase tracking-wider mb-4 cursor-pointer hover:text-foreground/80 transition-colors rounded-lg px-2 py-2 hover:bg-black/5 min-h-[44px]"
             >
-              <span>All Active Signals ({signals.length})</span>
-              <motion.div
-                animate={{ rotate: isListOpen ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
+              {isListOpen ? (
                 <ChevronDown className="w-4 h-4" />
-              </motion.div>
-            </button>
-            <AnimatePresence initial={false}>
-              {isListOpen && (
-                <motion.div
-                  key="active-list"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
-                  style={{ overflow: "hidden" }}
-                >
-                  {signals.length === 0 ? (
-                    <div
-                      className="rounded-xl p-6 text-center text-sm text-foreground/50 font-mono"
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      No signals available. Try rescanning.
-                    </div>
-                  ) : (
-                    signals.map((signal, idx) => {
-                      const ib = signal.direction === "long";
-                      return (
-                        <motion.button
-                          key={signal.id}
-                          initial={{ opacity: 0, x: 20 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: idx * 0.04 }}
-                          onClick={() => onSelectSignal(signal)}
-                          data-ocid={`signal.item.${idx + 1}`}
-                          className="w-full text-left rounded-xl p-3 flex items-center gap-3 group transition-all mb-2 min-h-[52px]"
-                          style={{
-                            background: "#ffffff",
-                            border: "1px solid rgba(0,0,0,0.15)",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                          }}
-                        >
-                          <div
-                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                            style={{
-                              background: ib
-                                ? "oklch(62% 0.18 145)"
-                                : "oklch(60% 0.18 25)",
-                            }}
-                          >
-                            {signal.symbol.slice(0, 2)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold truncate text-foreground">
-                              {signal.coinName}
-                            </div>
-                            <div className="text-xs font-mono text-foreground/55">
-                              {signal.symbol}
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div
-                              className={`text-sm font-mono font-bold ${ib ? "text-signal-buy" : "text-signal-sell"}`}
-                            >
-                              +{signal.profitPercent}%
-                            </div>
-                            <div className="text-xs font-mono text-gold/70">
-                              {signal.confidence}% conf
-                            </div>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-foreground/35 group-hover:text-gold/60 transition-colors flex-shrink-0" />
-                        </motion.button>
-                      );
-                    })
-                  )}
-                </motion.div>
+              ) : (
+                <ChevronRight className="w-4 h-4" />
               )}
-            </AnimatePresence>
+              {signals.length} signals (
+              {signals.filter((s) => s.direction === "long").length} long,{" "}
+              {signals.filter((s) => s.direction === "short").length} short)
+            </button>
           </div>
-        </div>
-      </div>
+          <SignalCarousel
+            signals={signals}
+            onSelectSignal={onSelectSignal}
+            renderCard={(signal) => (
+              <ActiveSignalCard
+                signal={signal}
+                onClick={() => onSelectSignal(signal)}
+                onTrack={onTrack}
+                isTracked={trackedIds.has(signal.id)}
+              />
+            )}
+          />
+        </>
+      )}
     </section>
   );
 }

@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  computeDumpRisk,
+  computeSignalStrength,
+  shouldShowSignal,
+  updateFilteredCount,
+  updateMarketPhase,
+} from "../lib/aiEngine";
+import type { SignalIndicators } from "../lib/aiEngine";
+import {
+  fetchAndCacheNews,
+  getCoinNewsBadge,
+  getCoinSentiment,
+} from "../lib/newsEngine";
+import {
   getAllBoosts,
   getBlacklist,
   getCoinReputation,
@@ -29,6 +42,12 @@ export interface SignalData {
   maxHoldHours: number;
   learningBoost: number;
   priceChange24h?: number;
+  dumpRisk: number;
+  signalStrength: "strong" | "weakening" | "at_risk";
+  // AI Engine fields
+  tpProbability: number;
+  newsBadge?: "positive" | "negative" | "trending" | null;
+  aiDumpRisk: "LOW" | "MEDIUM" | "HIGH";
 }
 
 // Fallback coin list with realistic price change and volume data
@@ -213,55 +232,13 @@ export const COIN_LIST = [
 
 const REASONING = [
   (coin: string, dir: string) =>
-    `${coin} shows a textbook ${
-      dir === "long" ? "bullish" : "bearish"
-    } breakout from a 3-week consolidation. RSI turning from ${
-      dir === "long" ? "oversold" : "overbought"
-    } with MACD crossover on 4H. Volume confirmation strong with smart-money ${
-      dir === "long" ? "accumulation" : "distribution"
-    } visible on order flow.`,
+    `${coin} shows textbook ${dir === "long" ? "oversold" : "overbought"} reversal. RSI ${dir === "long" ? "below 40" : "above 70"}, MACD ${dir === "long" ? "bullish" : "bearish"} crossover confirmed with volume expansion.`,
   (coin: string, dir: string) =>
-    `Technical confluence on ${coin}: bouncing off the 200-day EMA with ${
-      dir === "long"
-        ? "increasing buy-side pressure"
-        : "accelerating sell pressure"
-    }. ${
-      dir === "long" ? "Golden cross forming" : "Death cross confirmed"
-    } on daily. Institutional flow shows significant ${
-      dir === "long" ? "accumulation" : "distribution"
-    } over 48h.`,
+    `${coin} displaying ${dir === "long" ? "accumulation" : "distribution"} pattern. On-chain exchange ${dir === "long" ? "outflows" : "inflows"} rising.`,
   (coin: string, dir: string) =>
-    `${coin} completing a ${
-      dir === "long" ? "cup-and-handle" : "head-and-shoulders"
-    } pattern on 6H. Bollinger Bands squeezing toward ${
-      dir === "long" ? "upside" : "downside"
-    }. CVD confirms ${
-      dir === "long" ? "buyer" : "seller"
-    } dominance with above-average volume.`,
+    `${coin} forming ${dir === "long" ? "ascending triangle" : "descending wedge"} with decreasing ${dir === "long" ? "selling" : "buying"} pressure. Market structure shift confirmed on 1H. Whale wallet activity shows ${dir === "long" ? "accumulation" : "distribution"} phase.`,
   (coin: string, dir: string) =>
-    `Strong momentum signal for ${coin}: price respecting key Fibonacci ${
-      dir === "long" ? "support" : "resistance"
-    } at 0.618 retracement. Funding rates ${
-      dir === "long"
-        ? "negative (longs favored)"
-        : "elevated positive (longs at risk)"
-    }. On-chain exchange ${dir === "long" ? "outflows" : "inflows"} rising.`,
-  (coin: string, dir: string) =>
-    `${coin} forming ${
-      dir === "long" ? "ascending triangle" : "descending wedge"
-    } with decreasing ${
-      dir === "long" ? "selling" : "buying"
-    } pressure. Market structure shift confirmed on 1H. Whale wallet activity shows ${
-      dir === "long" ? "accumulation" : "distribution"
-    } phase. High-probability setup.`,
-  (coin: string, dir: string) =>
-    `Multi-timeframe alignment on ${coin}: all indicators (RSI, MACD, EMA 50/200) pointing ${
-      dir === "long" ? "up" : "down"
-    } simultaneously. Order book imbalance favors ${
-      dir === "long" ? "buyers" : "sellers"
-    } 3:1. Strong ${
-      dir === "long" ? "support" : "resistance"
-    } zone tested and confirmed.`,
+    `Multi-timeframe alignment on ${coin}: all indicators (RSI, MACD, EMA 50/200) pointing ${dir === "long" ? "up" : "down"} simultaneously. Order book imbalance favors ${dir === "long" ? "buyers" : "sellers"} 3:1.`,
 ];
 
 function seededRand(seed: number) {
@@ -281,7 +258,7 @@ interface CoinEntry {
   volume24h?: number;
 }
 
-// Generates signals with sentiment filter and reputation boost
+// Generates signals with full AI engine integration
 function generateSignals(
   coinList: CoinEntry[],
   livePrices: Record<string, number> = {},
@@ -292,7 +269,6 @@ function generateSignals(
   const now = Date.now();
   const r0 = seededRand(now % 99991);
 
-  // Filter out blacklisted coins before processing
   let excluded = 0;
   const filteredList = coinList.filter((c) => {
     if (blacklist.has(c.symbol.toUpperCase())) {
@@ -305,6 +281,7 @@ function generateSignals(
   const shuffled = [...filteredList].sort(() => r0() - 0.5).slice(0, 200);
 
   const signals: SignalData[] = [];
+  let aiFilteredCount = 0;
 
   for (let i = 0; i < shuffled.length; i++) {
     const coin = shuffled[i];
@@ -365,30 +342,13 @@ function generateSignals(
       85 + r() * 8 + volumeBonus + momentumStrength + rsiStrength;
     const learningBoostVal = boostMap[coin.symbol.toUpperCase()] ?? 0;
 
-    // Reputation-based extra boost (+5 for high-rep coins)
     const reputation = getCoinReputation(coin.symbol.toUpperCase());
     const reputationBoost = reputation === "high" ? 5 : 0;
 
-    const confidence = Math.min(
+    const rawConfidence = Math.min(
       100,
       Math.floor(baseConfidence + learningBoostVal + reputationBoost),
     );
-
-    if (confidence < 85) continue;
-
-    // Sentiment filter: suppress against-trend signals unless very high confidence
-    if (
-      marketSentiment === "bearish" &&
-      direction === "long" &&
-      confidence < 90
-    )
-      continue;
-    if (
-      marketSentiment === "bullish" &&
-      direction === "short" &&
-      confidence < 90
-    )
-      continue;
 
     const variance = (r() - 0.5) * 0.04;
     const livePrice =
@@ -404,7 +364,6 @@ function generateSignals(
       minProfit +
       (maxProfit - minProfit) * (0.3 + volatilityTier * 0.5 + r() * 0.2);
 
-    // Entry 0.5-3.5% away from current price so Trade Now is selective
     const entryOffset = (direction === "long" ? -1 : 1) * (0.005 + r() * 0.03);
     const entryPrice = currentPrice * (1 + entryOffset);
     const tpDistance = entryPrice * profitPct;
@@ -418,15 +377,99 @@ function generateSignals(
     const safeExitPrice =
       direction === "long" ? entryPrice * 0.99 : entryPrice * 1.01;
 
+    const sym = coin.symbol.toUpperCase();
+
+    // Build AI indicators
+    const macdNum = macd === "bullish" ? 0.01 : macd === "bearish" ? -0.01 : 0;
+    const newsSentiment = getCoinSentiment(sym);
+
+    const aiIndicators: SignalIndicators = {
+      rsi,
+      macd: macdNum,
+      macdSignal: 0,
+      volume24h: coin.volume24h ?? 1_000_000,
+      priceChange24h: change24h,
+      symbol: sym,
+      category: "other",
+      entryPrice,
+      tp: takeProfit,
+      sl: stopLoss,
+      signalType: direction === "long" ? "BUY" : "SELL",
+      timestamp: now,
+    };
+
+    // AI filter -- this is the "TP must hit" gate
+    const aiResult = shouldShowSignal(
+      aiIndicators,
+      rawConfidence,
+      newsSentiment,
+    );
+    if (!aiResult.allowed) {
+      aiFilteredCount++;
+      continue;
+    }
+
+    // Sentiment filter (existing)
+    if (
+      marketSentiment === "bearish" &&
+      direction === "long" &&
+      aiResult.adjustedConfidence < 90
+    )
+      continue;
+    if (
+      marketSentiment === "bullish" &&
+      direction === "short" &&
+      aiResult.adjustedConfidence < 90
+    )
+      continue;
+
+    const confidence = aiResult.adjustedConfidence;
+    const tpProbability = aiResult.tpProbability;
+
+    // AI computed dump risk and signal strength
+    const computedDumpRisk = computeDumpRisk({
+      rsi,
+      macd: macdNum,
+      macdSignal: 0,
+      priceChange24h: change24h,
+      signalType: direction === "long" ? "BUY" : "SELL",
+    });
+
+    const computedStrength = computeSignalStrength({
+      rsi,
+      macd: macdNum,
+      macdSignal: 0,
+      volume24h: coin.volume24h ?? 0,
+      priceChange24h: change24h,
+      signalType: direction === "long" ? "BUY" : "SELL",
+    });
+
+    const signalStrength: "strong" | "weakening" | "at_risk" =
+      computedStrength === "STRONG"
+        ? "strong"
+        : computedStrength === "WEAKENING"
+          ? "weakening"
+          : "at_risk";
+
+    // AI: skip HIGH dump risk signals
+    if (computedDumpRisk === "HIGH") {
+      aiFilteredCount++;
+      continue;
+    }
+
+    // Numeric dump risk for backward compat
+    const numericDumpRisk = computedDumpRisk === "MEDIUM" ? 0.4 : 0;
+
+    const newsBadge = getCoinNewsBadge(sym);
+
     const estimatedHours = Math.floor(3 + r() * 44);
     const maxHoldHours = Math.round(estimatedHours * 1.3);
-
     const fn = REASONING[Math.floor(r() * REASONING.length)];
 
     const signal: SignalData = {
       id: `sig_${coin.symbol}_${now}_${i}`,
       coinName: coin.name,
-      symbol: coin.symbol.toUpperCase(),
+      symbol: sym,
       currentPrice,
       entryPrice,
       takeProfit,
@@ -446,12 +489,20 @@ function generateSignals(
       maxHoldHours,
       learningBoost: learningBoostVal + reputationBoost,
       priceChange24h: coin.priceChange24h,
+      dumpRisk: numericDumpRisk,
+      signalStrength,
+      tpProbability,
+      newsBadge,
+      aiDumpRisk: computedDumpRisk,
     };
 
     signals.push(signal);
 
     if (signals.length >= 40) break;
   }
+
+  // Report filtered count to AI engine
+  updateFilteredCount(aiFilteredCount + excluded);
 
   return { signals, excludedByReputation: excluded };
 }
@@ -597,7 +648,6 @@ export function useCryptoSignals() {
       const avg = changeCount > 0 ? totalChange / changeCount : 0;
       if (changeCount > 0) setAvgChange24h(avg);
 
-      // Determine market sentiment
       const sentiment: "bullish" | "bearish" | "neutral" =
         avg > 2 ? "bullish" : avg < -1.5 ? "bearish" : "neutral";
       setMarketSentiment(sentiment);
@@ -606,6 +656,17 @@ export function useCryptoSignals() {
         current: allEntries.length,
         total: allEntries.length,
       });
+
+      // Update AI market phase in parallel with news fetch
+      const priceData = allEntries.map((e) => ({
+        priceChange24h: e.priceChange24h ?? 0,
+        volume24h: e.volume24h ?? 0,
+      }));
+      const symbols = allEntries.map((e) => e.symbol);
+
+      // Fire and forget -- don't block signal generation
+      updateMarketPhase(priceData);
+      fetchAndCacheNews(symbols).catch(() => {});
 
       return allEntries;
     } catch {
@@ -672,7 +733,6 @@ export function useCryptoSignals() {
     setSignals([]);
     setScanProgress({ current: 0, total: 750 });
     const coins = await fetchCoinGeckoMarkets();
-    // Recompute sentiment from avgChange after fetch
     const avg =
       coins.reduce((s, c) => s + (c.priceChange24h ?? 0), 0) /
       Math.max(coins.length, 1);
