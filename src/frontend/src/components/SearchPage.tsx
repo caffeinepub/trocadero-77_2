@@ -131,6 +131,10 @@ function generateSearchSignal(
     Boolean,
   ).length;
 
+  // Core alignment check: RSI, MACD, and momentum must all align with trade direction
+  const allAligned = rsiOk && macdOk && momentumOk;
+  if (!allAligned) return null;
+
   // Honest confidence: 4/4 alignment = 85-100, fewer = lower
   const alignmentBonus = (alignedCount / 4) * 30;
   const volumeBonus = volumeScore * 5;
@@ -144,9 +148,9 @@ function generateSearchSignal(
   const reputation = getCoinReputation(sym);
   const reputationBoost = reputation === "high" ? 5 : 0;
 
-  // Base starts at 45 so partial alignment gives realistic 50-80% scores
+  // Base starts at 65 so partial alignment gives realistic 65-90% scores
   const baseConfidence =
-    45 +
+    65 +
     alignmentBonus +
     volumeBonus +
     momentumStrength +

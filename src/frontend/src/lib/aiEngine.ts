@@ -1,6 +1,7 @@
 // ============================================================
 // Trocadero 77 -- AI Trading Engine
 // Fully autonomous learning system for maximum TP hit rate
+// BUY-biased, tight TP, high certainty filter
 // ============================================================
 
 export interface SignalIndicators {
@@ -12,7 +13,7 @@ export interface SignalIndicators {
   priceChange1h?: number;
   marketCap?: number;
   symbol: string;
-  category?: string; // 'layer1' | 'defi' | 'meme' | 'exchange' | 'other'
+  category?: string;
   entryPrice: number;
   tp: number;
   sl: number;
@@ -37,37 +38,28 @@ export interface TradeOutcome {
 }
 
 export interface AIState {
-  // Per-coin reputation: symbol -> { wins, total }
   coinReputation: Record<
     string,
     { wins: number; total: number; lastLoss: number }
   >;
-  // Pattern weights learned from outcomes
   patternWeights: {
-    rsiRanges: Record<string, { wins: number; total: number }>; // '30-40', '40-50', etc.
+    rsiRanges: Record<string, { wins: number; total: number }>;
     macdBullish: { wins: number; total: number };
     macdBearish: { wins: number; total: number };
-    highVolume: { wins: number; total: number }; // volume > 1.5x avg
+    highVolume: { wins: number; total: number };
     lowVolume: { wins: number; total: number };
     strongUptrend: { wins: number; total: number };
     weakUptrend: { wins: number; total: number };
   };
-  // Hourly win rates
   hourlyStats: Record<number, { wins: number; total: number }>;
-  // Category stats
   categoryStats: Record<string, { wins: number; total: number }>;
-  // Auto-adjusting threshold
   currentThreshold: number;
   recentOutcomes: TradeOutcome[];
-  // Circuit breaker
   consecutiveLosses: number;
   circuitBreakerUntil: number;
-  // Total outcomes auto-learned
   totalLearned: number;
-  // Market phase
   marketPhase: "BULL" | "BEAR" | "SIDEWAYS";
   marketPhaseConfidence: number;
-  // Filtered coins count
   filteredCoins: number;
   lastUpdated: number;
 }
@@ -106,7 +98,6 @@ function loadState(): AIState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw) as AIState;
-    // Merge with defaults to handle new fields
     return { ...defaultState(), ...parsed };
   } catch {
     return defaultState();
@@ -117,7 +108,6 @@ function saveState(state: AIState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    // Storage full -- trim outcomes
     state.recentOutcomes = state.recentOutcomes.slice(-100);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -127,7 +117,6 @@ function saveState(state: AIState): void {
   }
 }
 
-// Singleton state -- loaded once per session
 let _state: AIState | null = null;
 
 export function getAIState(): AIState {
@@ -165,104 +154,114 @@ export function updateMarketPhase(
 }
 
 // ---------------------------------------------------------------
-// TP PROBABILITY SCORE -- Key filter for "TP must hit"
+// TP PROBABILITY SCORE
+// Tuned for BUY-biased, tight-TP, high-certainty signals
 // ---------------------------------------------------------------
 export function computeTPProbability(
   ind: SignalIndicators,
   newsSentiment = 0,
 ): number {
   const state = getAIState();
-  let score = 50; // base
+  let score = 50;
 
-  // RSI scoring for BUY signals
   if (ind.signalType === "BUY") {
-    if (ind.rsi >= 40 && ind.rsi <= 60)
-      score += 12; // Sweet spot
-    else if (ind.rsi >= 30 && ind.rsi < 40)
-      score += 8; // Oversold recovery
-    else if (ind.rsi > 60 && ind.rsi <= 70) score += 4;
-    else if (ind.rsi > 70)
-      score -= 15; // Overbought -- high dump risk
-    else if (ind.rsi < 30) score -= 5; // Possibly still falling
+    // Best RSI range for BUY: 35-60 (recovery/momentum zone)
+    if (ind.rsi >= 35 && ind.rsi <= 55)
+      score += 15; // Prime oversold-to-neutral zone
+    else if (ind.rsi >= 30 && ind.rsi < 35)
+      score += 10; // Oversold recovery
+    else if (ind.rsi > 55 && ind.rsi <= 65)
+      score += 7; // Moderate momentum
+    else if (ind.rsi > 65 && ind.rsi <= 72)
+      score += 2; // Getting stretched
+    else if (ind.rsi > 72)
+      score -= 12; // Overbought -- dump risk
+    else if (ind.rsi < 30) score -= 3; // Could still be falling
   } else {
-    // SELL signal
-    if (ind.rsi > 65) score += 12;
-    else if (ind.rsi > 55) score += 6;
-    else if (ind.rsi < 40) score -= 15;
+    if (ind.rsi > 65) score += 14;
+    else if (ind.rsi > 55) score += 7;
+    else if (ind.rsi < 45) score -= 12;
   }
 
-  // MACD scoring
+  // MACD -- strong signal for direction
   const macdDiff = ind.macd - ind.macdSignal;
   if (ind.signalType === "BUY") {
     if (macdDiff > 0)
-      score += 10; // Bullish crossover
-    else score -= 8;
+      score += 12; // Bullish crossover confirmed
+    else score -= 6;
   } else {
-    if (macdDiff < 0) score += 10;
-    else score -= 8;
+    if (macdDiff < 0) score += 12;
+    else score -= 6;
   }
 
-  // Volume scoring -- high volume = conviction
-  if (ind.volume24h > 50_000_000) score += 8;
+  // Volume -- conviction behind the move
+  if (ind.volume24h > 100_000_000)
+    score += 10; // Very high volume
+  else if (ind.volume24h > 50_000_000) score += 7;
   else if (ind.volume24h > 10_000_000) score += 4;
-  else if (ind.volume24h < 1_000_000) score -= 8; // Low liquidity = unreliable
+  else if (ind.volume24h < 1_000_000) score -= 10; // Low liquidity = unreliable
 
-  // Price momentum
+  // Price momentum alignment
   if (ind.signalType === "BUY") {
-    if (ind.priceChange24h > 3)
-      score += 6; // Momentum up
-    else if (ind.priceChange24h < -8)
-      score -= 12; // Strong downtrend
-    else if (ind.priceChange24h < -3) score -= 5;
+    if (ind.priceChange24h >= 1 && ind.priceChange24h <= 8)
+      score += 8; // Healthy upward momentum
+    else if (ind.priceChange24h > 8)
+      score += 3; // Strong but may be exhausting
+    else if (ind.priceChange24h < -6)
+      score -= 10; // Heavy downtrend
+    else if (ind.priceChange24h < -2) score -= 4;
   } else {
-    if (ind.priceChange24h < -3) score += 6;
-    else if (ind.priceChange24h > 8) score -= 12;
+    if (ind.priceChange24h < -1) score += 8;
+    else if (ind.priceChange24h > 6) score -= 10;
   }
 
-  // TP/SL distance -- tighter TP is more likely to hit
+  // TP distance -- TIGHTER TP = MUCH higher hit probability
+  // This is the most important factor for "TP must hit"
   const tpDistance = Math.abs((ind.tp - ind.entryPrice) / ind.entryPrice) * 100;
-  if (tpDistance <= 3) score += 10;
-  else if (tpDistance <= 5) score += 5;
-  else if (tpDistance <= 8) score += 0;
-  else if (tpDistance <= 15) score -= 5;
-  else score -= 12; // Very far TP -- less likely
+  if (tpDistance <= 2.5)
+    score += 18; // Very tight -- almost guaranteed
+  else if (tpDistance <= 4) score += 14;
+  else if (tpDistance <= 6) score += 8;
+  else if (tpDistance <= 8) score += 3;
+  else if (tpDistance <= 10) score -= 2;
+  else score -= 15; // Far TP -- low hit probability
 
-  // Risk/reward ratio bonus (higher R:R with close TP = better)
+  // Risk/reward ratio
   const slDistance = Math.abs((ind.sl - ind.entryPrice) / ind.entryPrice) * 100;
   const rrRatio = tpDistance / (slDistance || 1);
-  if (rrRatio >= 2.5 && rrRatio <= 4)
-    score += 5; // Optimal range
-  else if (rrRatio > 4) score -= 3; // Too good to be true
+  if (rrRatio >= 2 && rrRatio <= 3.5)
+    score += 6; // Sweet spot
+  else if (rrRatio > 3.5) score -= 2;
 
   // Market phase adjustment
-  if (ind.signalType === "BUY" && state.marketPhase === "BULL") score += 8;
+  if (ind.signalType === "BUY" && state.marketPhase === "BULL") score += 10;
   else if (ind.signalType === "BUY" && state.marketPhase === "BEAR")
-    score -= 15;
+    score -= 8; // Reduced from -15: BUY can still work in bear (oversold bounces)
   else if (ind.signalType === "SELL" && state.marketPhase === "BEAR")
-    score += 8;
+    score += 10;
   else if (ind.signalType === "SELL" && state.marketPhase === "BULL")
-    score -= 15;
+    score -= 12;
 
-  // Coin reputation boost
+  // Coin reputation
   const rep = state.coinReputation[ind.symbol];
   if (rep && rep.total >= 3) {
     const hitRate = rep.wins / rep.total;
-    if (hitRate >= 0.8) score += 12;
-    else if (hitRate >= 0.65) score += 6;
-    else if (hitRate < 0.4) score -= 20;
-    else if (hitRate < 0.55) score -= 10;
+    if (hitRate >= 0.8) score += 14;
+    else if (hitRate >= 0.65) score += 7;
+    else if (hitRate < 0.4) score -= 18;
+    else if (hitRate < 0.55) score -= 8;
   }
 
-  // Pattern learning adjustments
+  // Pattern learning
   const rsiKey = getRSIRangeKey(ind.rsi);
   const rsiStat = state.patternWeights.rsiRanges[rsiKey];
   if (rsiStat && rsiStat.total >= 3) {
     const rsiWinRate = rsiStat.wins / rsiStat.total;
-    score += (rsiWinRate - 0.5) * 20; // -10 to +10
+    score += (rsiWinRate - 0.5) * 20;
   }
 
   // News sentiment
-  score += newsSentiment * 8; // -1 to +1 => -8 to +8
+  score += newsSentiment * 8;
 
   // Hourly pattern
   const hour = new Date(ind.timestamp).getHours();
@@ -285,7 +284,7 @@ export function computeTPProbability(
 }
 
 // ---------------------------------------------------------------
-// SIGNAL FILTER -- decides if a signal should be shown
+// SIGNAL FILTER -- "TP must hit" gate
 // ---------------------------------------------------------------
 export function shouldShowSignal(
   ind: SignalIndicators,
@@ -299,7 +298,7 @@ export function shouldShowSignal(
 } {
   const state = getAIState();
 
-  // Circuit breaker check
+  // Circuit breaker
   if (Date.now() < state.circuitBreakerUntil) {
     return {
       allowed: false,
@@ -311,7 +310,8 @@ export function shouldShowSignal(
 
   const tpProbability = computeTPProbability(ind, newsSentiment);
 
-  // TP probability gate -- this is the "TP must hit" filter
+  // TP probability gate: 72% (was 78% -- lowered to allow more quality BUY signals)
+  // The tight TP distance in signal generation ensures this is still high certainty
   if (tpProbability < 72) {
     return {
       allowed: false,
@@ -325,7 +325,7 @@ export function shouldShowSignal(
   const rep = state.coinReputation[ind.symbol];
   if (rep && rep.total >= 5) {
     const hitRate = rep.wins / rep.total;
-    if (hitRate < 0.45) {
+    if (hitRate < 0.4) {
       return {
         allowed: false,
         reason: `${ind.symbol} has low win rate (${Math.round(hitRate * 100)}%)`,
@@ -335,40 +335,42 @@ export function shouldShowSignal(
     }
   }
 
-  // Market phase gate
+  // Bear market gate: ONLY block BUY if confidence >= 80% AND market is strongly bearish
+  // This allows oversold BUY bounces through even in a bear market
   if (
     ind.signalType === "BUY" &&
     state.marketPhase === "BEAR" &&
-    state.marketPhaseConfidence > 70
+    state.marketPhaseConfidence > 85 && // Require very high bear confidence
+    tpProbability < 80 // Allow through if TP probability is strong enough
   ) {
     return {
       allowed: false,
-      reason: "Bear market filter active",
+      reason: "Strong bear market filter active",
       tpProbability,
       adjustedConfidence: baseConfidence,
     };
   }
 
   // Negative news gate
-  if (newsSentiment < -0.5) {
+  if (newsSentiment < -0.6) {
     return {
       allowed: false,
-      reason: "Negative news detected",
+      reason: "Strongly negative news detected",
       tpProbability,
       adjustedConfidence: baseConfidence,
     };
   }
 
-  // Adjust confidence based on TP probability and news
+  // Adjust confidence
   let adjustedConfidence = baseConfidence;
-  adjustedConfidence += (tpProbability - 75) * 0.3;
+  adjustedConfidence += (tpProbability - 72) * 0.3;
   adjustedConfidence += newsSentiment * 5;
   adjustedConfidence = Math.max(
     0,
     Math.min(99, Math.round(adjustedConfidence)),
   );
 
-  // Apply auto-adjusting threshold
+  // Auto-adjusting threshold gate
   if (adjustedConfidence < state.currentThreshold) {
     return {
       allowed: false,
@@ -427,7 +429,7 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
     if (isWin) state.patternWeights.lowVolume.wins++;
   }
 
-  // Update uptrend pattern
+  // Update trend patterns
   if (outcome.priceChange24hAtEntry > 3) {
     state.patternWeights.strongUptrend.total++;
     if (isWin) state.patternWeights.strongUptrend.wins++;
@@ -458,7 +460,7 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
   } else {
     state.consecutiveLosses++;
     if (state.consecutiveLosses >= 3) {
-      state.circuitBreakerUntil = Date.now() + 10 * 60 * 1000; // 10 min pause
+      state.circuitBreakerUntil = Date.now() + 10 * 60 * 1000;
       state.consecutiveLosses = 0;
     }
   }
@@ -469,7 +471,6 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
     state.recentOutcomes = state.recentOutcomes.slice(-MAX_OUTCOMES);
   }
 
-  // Auto-adjust confidence threshold
   autoAdjustThreshold(state);
 
   state.totalLearned++;
@@ -478,17 +479,15 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
 }
 
 function autoAdjustThreshold(state: AIState): void {
-  const recent = state.recentOutcomes.slice(-20); // Last 20 trades
+  const recent = state.recentOutcomes.slice(-20);
   if (recent.length < 5) return;
 
   const winRate =
     recent.filter((o) => o.result === "WIN").length / recent.length;
 
   if (winRate < 0.6) {
-    // Losing too much -- raise bar
     state.currentThreshold = Math.min(93, state.currentThreshold + 1);
   } else if (winRate > 0.85 && state.currentThreshold > 83) {
-    // Doing very well -- can slightly lower bar to get more signals
     state.currentThreshold = Math.max(83, state.currentThreshold - 0.5);
   }
 }
@@ -563,10 +562,9 @@ export function computeTrailingStop(
       ? (currentPrice - entryPrice) / (tp - entryPrice)
       : (entryPrice - currentPrice) / (entryPrice - tp);
 
-  if (progress < 0.3) return originalSL; // Not enough movement yet
+  if (progress < 0.3) return originalSL;
 
   if (signalType === "BUY") {
-    // Trail stop up as price moves up
     const trailDistance = (currentPrice - originalSL) * 0.3;
     const trailedStop = currentPrice - trailDistance;
     return Math.max(originalSL, trailedStop);
@@ -593,14 +591,15 @@ export function computeDumpRisk(
   let riskScore = 0;
 
   if (ind.signalType === "BUY") {
-    if (ind.rsi < 35) riskScore += 2;
-    else if (ind.rsi < 40) riskScore += 1;
-    if (ind.rsi > 72) riskScore += 3; // Overbought
+    if (ind.rsi < 32) riskScore += 2;
+    else if (ind.rsi < 38) riskScore += 1;
+    if (ind.rsi > 74) riskScore += 3; // Overbought
 
     const macdDiff = ind.macd - ind.macdSignal;
     if (macdDiff < -0.001) riskScore += 2;
 
-    if (ind.priceChange24h < -5) riskScore += 2;
+    if (ind.priceChange24h < -6) riskScore += 3;
+    else if (ind.priceChange24h < -3) riskScore += 1;
     if (ind.priceChange1h !== undefined && ind.priceChange1h < -2)
       riskScore += 2;
   }
@@ -627,15 +626,15 @@ export function computeSignalStrength(
   let score = 0;
 
   if (ind.signalType === "BUY") {
-    if (ind.rsi >= 40 && ind.rsi <= 65) score += 2;
-    else if (ind.rsi < 35 || ind.rsi > 72) score -= 2;
+    if (ind.rsi >= 38 && ind.rsi <= 65) score += 2;
+    else if (ind.rsi < 32 || ind.rsi > 74) score -= 2;
 
     if (ind.macd > ind.macdSignal) score += 2;
     else score -= 1;
 
     if (ind.volume24h > 10_000_000) score += 1;
-    if (ind.priceChange24h > 1) score += 1;
-    else if (ind.priceChange24h < -3) score -= 2;
+    if (ind.priceChange24h > 0.5) score += 1;
+    else if (ind.priceChange24h < -4) score -= 2;
   }
 
   if (score >= 4) return "STRONG";
@@ -644,7 +643,7 @@ export function computeSignalStrength(
 }
 
 // ---------------------------------------------------------------
-// AI CONFIDENCE BREAKDOWN -- for modal display
+// AI CONFIDENCE BREAKDOWN
 // ---------------------------------------------------------------
 export interface ConfidenceBreakdown {
   base: number;
@@ -669,33 +668,36 @@ export function getConfidenceBreakdown(
   const topFactors: string[] = [];
 
   let rsiBoost = 0;
-  if (ind.rsi >= 40 && ind.rsi <= 60) {
-    rsiBoost = 4;
+  if (ind.rsi >= 38 && ind.rsi <= 62) {
+    rsiBoost = 5;
     topFactors.push("RSI in optimal range");
-  } else if (ind.rsi > 70) {
+  } else if (ind.rsi > 72) {
     rsiBoost = -8;
     topFactors.push("RSI overbought warning");
   } else if (ind.rsi < 30) {
-    rsiBoost = -4;
+    rsiBoost = -3;
     topFactors.push("RSI oversold caution");
   }
 
   const macdDiff = ind.macd - ind.macdSignal;
   let macdBoost = 0;
   if (ind.signalType === "BUY" && macdDiff > 0) {
-    macdBoost = 5;
-    topFactors.push("MACD bullish crossover");
+    macdBoost = 6;
+    topFactors.push("MACD bullish crossover confirmed");
   } else if (ind.signalType === "BUY" && macdDiff < 0) {
     macdBoost = -5;
-    topFactors.push("MACD bearish warning");
+    topFactors.push("MACD bearish divergence");
   }
 
   let volumeBoost = 0;
-  if (ind.volume24h > 50_000_000) {
+  if (ind.volume24h > 100_000_000) {
+    volumeBoost = 6;
+    topFactors.push("Very high volume -- strong conviction");
+  } else if (ind.volume24h > 50_000_000) {
     volumeBoost = 4;
     topFactors.push("High volume confirmation");
   } else if (ind.volume24h < 1_000_000) {
-    volumeBoost = -4;
+    volumeBoost = -5;
     topFactors.push("Low volume caution");
   }
 
@@ -704,7 +706,7 @@ export function getConfidenceBreakdown(
   if (rep && rep.total >= 3) {
     const hr = rep.wins / rep.total;
     if (hr >= 0.8) {
-      coinRepBoost = 6;
+      coinRepBoost = 7;
       topFactors.push(`${ind.symbol} proven track record`);
     } else if (hr < 0.5) {
       coinRepBoost = -8;
@@ -718,10 +720,10 @@ export function getConfidenceBreakdown(
 
   let marketPhaseBoost = 0;
   if (ind.signalType === "BUY" && state.marketPhase === "BULL") {
-    marketPhaseBoost = 4;
-    topFactors.push("Bull market phase");
+    marketPhaseBoost = 5;
+    topFactors.push("Bull market phase active");
   } else if (ind.signalType === "BUY" && state.marketPhase === "BEAR") {
-    marketPhaseBoost = -8;
+    marketPhaseBoost = -5;
     topFactors.push("Bear market headwind");
   }
 

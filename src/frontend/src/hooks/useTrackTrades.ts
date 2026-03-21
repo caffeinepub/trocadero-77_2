@@ -14,6 +14,14 @@ export interface TrackedTrade {
   safeExitPrice: number;
   profitPercent: number;
   trackedAt: number;
+  // Signal quality fields stored at track time
+  confidence?: number;
+  rsi?: number;
+  macd?: "bullish" | "bearish" | "neutral";
+  volume?: "high" | "medium" | "low";
+  tpProbability?: number;
+  dumpRisk?: number;
+  learningBoost?: number;
 }
 
 function loadTrades(): TrackedTrade[] {
@@ -55,6 +63,13 @@ export function useTrackTrades() {
           safeExitPrice: signal.safeExitPrice,
           profitPercent: signal.profitPercent,
           trackedAt: Date.now(),
+          confidence: signal.confidence,
+          rsi: signal.rsi,
+          macd: signal.macd,
+          volume: signal.volume,
+          tpProbability: signal.tpProbability,
+          dumpRisk: signal.dumpRisk,
+          learningBoost: signal.learningBoost,
         },
       ];
       saveTrades(next);

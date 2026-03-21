@@ -1,11 +1,16 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import AdminPanel from "./components/AdminPanel";
+import CreditGate from "./components/CreditGate";
 import EnterNowSection from "./components/EnterNowSection";
+import FastTradingSection from "./components/FastTradingSection";
 import FounderSection from "./components/FounderSection";
 import HeroSection from "./components/HeroSection";
 import HighProfitSection from "./components/HighProfitSection";
+import LoginModal from "./components/LoginModal";
 import Navbar from "./components/Navbar";
+import PostsFeed from "./components/PostsFeed";
 import SearchPage from "./components/SearchPage";
 import SignalCardSection from "./components/SignalCard";
 import SignalDetail from "./components/SignalDetail";
@@ -18,6 +23,7 @@ import {
   recordOutcome,
 } from "./hooks/useLearningEngine";
 import { useTrackTrades } from "./hooks/useTrackTrades";
+import { getCurrentUser, logout } from "./lib/authManager";
 
 export default function App() {
   const {
@@ -32,6 +38,7 @@ export default function App() {
     stats,
     scanProgress,
     livePrices,
+    coinList,
     isLoading,
     marketSentiment,
     excludedByReputation,
@@ -43,6 +50,17 @@ export default function App() {
   const [autoLearned, setAutoLearned] = useState(
     () => getAutoLearnStats().totalAutoLearned,
   );
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    isAdmin: boolean;
+  } | null>(() => {
+    const u = getCurrentUser();
+    if (!u || u.isExpired) return null;
+    return { username: u.username, isAdmin: u.isAdmin };
+  });
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const { trackedTrades, trackedIds, addTrade, removeTrade } = useTrackTrades();
 
@@ -74,8 +92,31 @@ export default function App() {
   const handleAutoLearnUpdate = useCallback(() => {
     setAutoLearned(getAutoLearnStats().totalAutoLearned);
     setSessionStats(getSessionStats());
-    buildSignals([], livePrices, marketSentiment);
-  }, [buildSignals, livePrices, marketSentiment]);
+    if (coinList && coinList.length > 0) {
+      buildSignals(coinList, livePrices, marketSentiment);
+    }
+  }, [buildSignals, coinList, livePrices, marketSentiment]);
+
+  const handleLoginSuccess = useCallback(
+    (username: string, isAdmin: boolean) => {
+      setCurrentUser({ username, isAdmin });
+      setShowLoginModal(false);
+      toast.success(
+        isAdmin
+          ? `Welcome back, ${username}! Admin access granted.`
+          : `Welcome back, ${username}!`,
+      );
+      if (isAdmin) scrollTo("adminpanel");
+    },
+    [scrollTo],
+  );
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setCurrentUser(null);
+    scrollTo("home");
+    toast.success("Logged out successfully");
+  }, [scrollTo]);
 
   const statsWithSession = {
     ...stats,
@@ -96,50 +137,74 @@ export default function App() {
               autoLearned={autoLearned}
               sessionWinRate={statsWithSession.winRate}
             />
+            <PostsFeed />
             <FounderSection />
           </main>
         );
       case "tradenow":
         return (
           <main>
-            <HeroSection
-              stats={statsWithSession}
-              signals={signals}
-              marketSentiment={marketSentiment}
-              excludedByReputation={excludedByReputation}
-              autoLearned={autoLearned}
-              sessionWinRate={statsWithSession.winRate}
-            />
-            <EnterNowSection
-              signals={signals}
-              onSelectSignal={setSelectedSignal}
-              onTrack={addTrade}
-              trackedIds={trackedIds}
-            />
+            <CreditGate
+              sectionName="Trade Now"
+              onLogin={() => setShowLoginModal(true)}
+            >
+              <EnterNowSection
+                signals={signals}
+                onSelectSignal={setSelectedSignal}
+                onTrack={addTrade}
+                trackedIds={trackedIds}
+              />
+            </CreditGate>
+          </main>
+        );
+      case "fasttrades":
+        return (
+          <main>
+            <CreditGate
+              sectionName="Fast Trades"
+              onLogin={() => setShowLoginModal(true)}
+            >
+              <FastTradingSection
+                signals={signals}
+                onSelectSignal={setSelectedSignal}
+                onTrack={addTrade}
+                trackedIds={trackedIds}
+              />
+            </CreditGate>
           </main>
         );
       case "signals":
         return (
           <main>
-            <SignalCardSection
-              signals={signals}
-              onSelectSignal={setSelectedSignal}
-              lastScanTime={lastScanTime}
-              onTrack={addTrade}
-              trackedIds={trackedIds}
-              isLoading={isLoading}
-            />
+            <CreditGate
+              sectionName="Active Signals"
+              onLogin={() => setShowLoginModal(true)}
+            >
+              <SignalCardSection
+                signals={signals}
+                onSelectSignal={setSelectedSignal}
+                lastScanTime={lastScanTime}
+                onTrack={addTrade}
+                trackedIds={trackedIds}
+                isLoading={isLoading}
+              />
+            </CreditGate>
           </main>
         );
       case "highprofit":
         return (
           <main>
-            <HighProfitSection
-              signals={highProfitSignals}
-              onSelectSignal={setSelectedSignal}
-              onTrack={addTrade}
-              trackedIds={trackedIds}
-            />
+            <CreditGate
+              sectionName="High Profit"
+              onLogin={() => setShowLoginModal(true)}
+            >
+              <HighProfitSection
+                signals={highProfitSignals}
+                onSelectSignal={setSelectedSignal}
+                onTrack={addTrade}
+                trackedIds={trackedIds}
+              />
+            </CreditGate>
           </main>
         );
       case "tracking":
@@ -168,6 +233,13 @@ export default function App() {
             <FounderSection />
           </main>
         );
+      case "adminpanel":
+        if (!currentUser?.isAdmin) return null;
+        return (
+          <main>
+            <AdminPanel adminUsername={currentUser.username} />
+          </main>
+        );
       default:
         return (
           <main>
@@ -179,13 +251,15 @@ export default function App() {
               autoLearned={autoLearned}
               sessionWinRate={statsWithSession.winRate}
             />
+            <PostsFeed />
             <FounderSection />
           </main>
         );
     }
   };
 
-  const showFooter = activeSection !== "tracking";
+  const showFooter =
+    activeSection !== "tracking" && activeSection !== "adminpanel";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -198,6 +272,10 @@ export default function App() {
         isScanning={isScanning}
         scanProgress={scanProgress}
         trackedCount={trackedTrades.length}
+        currentUser={currentUser}
+        onLogin={() => setShowLoginModal(true)}
+        onLogout={handleLogout}
+        onOpenAdmin={() => scrollTo("adminpanel")}
       />
 
       {renderContent()}
@@ -217,6 +295,17 @@ export default function App() {
             <div className="text-xs text-foreground/80 font-mono">
               Trading signals carry risk. DYOR.
             </div>
+            <div className="text-xs text-foreground/50">
+              © {new Date().getFullYear()}. Built with ❤️ using{" "}
+              <a
+                href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground/70 transition-colors"
+              >
+                caffeine.ai
+              </a>
+            </div>
           </div>
         </footer>
       )}
@@ -225,6 +314,13 @@ export default function App() {
         signal={selectedSignal}
         onClose={() => setSelectedSignal(null)}
         onMarkAccuracy={handleMarkAccuracy}
+      />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={handleLoginSuccess}
       />
     </div>
   );

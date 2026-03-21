@@ -50,195 +50,19 @@ export interface SignalData {
   aiDumpRisk: "LOW" | "MEDIUM" | "HIGH";
 }
 
-// Fallback coin list with realistic price change and volume data
-export const COIN_LIST = [
-  {
-    id: "bitcoin",
-    name: "Bitcoin",
-    symbol: "BTC",
-    basePrice: 65000,
-    priceChange24h: 3.2,
-    volume24h: 28_000_000_000,
-  },
-  {
-    id: "ethereum",
-    name: "Ethereum",
-    symbol: "ETH",
-    basePrice: 3400,
-    priceChange24h: 2.1,
-    volume24h: 14_000_000_000,
-  },
-  {
-    id: "binancecoin",
-    name: "BNB",
-    symbol: "BNB",
-    basePrice: 580,
-    priceChange24h: 1.8,
-    volume24h: 2_100_000_000,
-  },
-  {
-    id: "solana",
-    name: "Solana",
-    symbol: "SOL",
-    basePrice: 165,
-    priceChange24h: 5.4,
-    volume24h: 3_800_000_000,
-  },
-  {
-    id: "cardano",
-    name: "Cardano",
-    symbol: "ADA",
-    basePrice: 0.52,
-    priceChange24h: -1.3,
-    volume24h: 520_000_000,
-  },
-  {
-    id: "polkadot",
-    name: "Polkadot",
-    symbol: "DOT",
-    basePrice: 8.2,
-    priceChange24h: -2.7,
-    volume24h: 310_000_000,
-  },
-  {
-    id: "avalanche-2",
-    name: "Avalanche",
-    symbol: "AVAX",
-    basePrice: 38,
-    priceChange24h: 6.1,
-    volume24h: 740_000_000,
-  },
-  {
-    id: "matic-network",
-    name: "Polygon",
-    symbol: "MATIC",
-    basePrice: 0.88,
-    priceChange24h: -3.5,
-    volume24h: 410_000_000,
-  },
-  {
-    id: "chainlink",
-    name: "Chainlink",
-    symbol: "LINK",
-    basePrice: 17.5,
-    priceChange24h: 4.9,
-    volume24h: 680_000_000,
-  },
-  {
-    id: "uniswap",
-    name: "Uniswap",
-    symbol: "UNI",
-    basePrice: 11.2,
-    priceChange24h: 2.3,
-    volume24h: 290_000_000,
-  },
-  {
-    id: "cosmos",
-    name: "Cosmos",
-    symbol: "ATOM",
-    basePrice: 9.8,
-    priceChange24h: -1.8,
-    volume24h: 220_000_000,
-  },
-  {
-    id: "litecoin",
-    name: "Litecoin",
-    symbol: "LTC",
-    basePrice: 92,
-    priceChange24h: 1.1,
-    volume24h: 580_000_000,
-  },
-  {
-    id: "ripple",
-    name: "XRP",
-    symbol: "XRP",
-    basePrice: 0.62,
-    priceChange24h: 7.2,
-    volume24h: 2_900_000_000,
-  },
-  {
-    id: "dogecoin",
-    name: "Dogecoin",
-    symbol: "DOGE",
-    basePrice: 0.165,
-    priceChange24h: 8.5,
-    volume24h: 1_100_000_000,
-  },
-  {
-    id: "near",
-    name: "NEAR Protocol",
-    symbol: "NEAR",
-    basePrice: 7.4,
-    priceChange24h: 3.8,
-    volume24h: 340_000_000,
-  },
-  {
-    id: "aptos",
-    name: "Aptos",
-    symbol: "APT",
-    basePrice: 10.5,
-    priceChange24h: -4.2,
-    volume24h: 280_000_000,
-  },
-  {
-    id: "arbitrum",
-    name: "Arbitrum",
-    symbol: "ARB",
-    basePrice: 1.18,
-    priceChange24h: 2.9,
-    volume24h: 190_000_000,
-  },
-  {
-    id: "optimism",
-    name: "Optimism",
-    symbol: "OP",
-    basePrice: 2.65,
-    priceChange24h: -2.1,
-    volume24h: 175_000_000,
-  },
-  {
-    id: "sui",
-    name: "Sui",
-    symbol: "SUI",
-    basePrice: 1.95,
-    priceChange24h: 9.3,
-    volume24h: 620_000_000,
-  },
-  {
-    id: "injective-protocol",
-    name: "Injective",
-    symbol: "INJ",
-    basePrice: 28,
-    priceChange24h: 6.7,
-    volume24h: 390_000_000,
-  },
-  {
-    id: "render-token",
-    name: "Render",
-    symbol: "RNDR",
-    basePrice: 8.9,
-    priceChange24h: 4.4,
-    volume24h: 260_000_000,
-  },
-  {
-    id: "internet-computer",
-    name: "Internet Computer",
-    symbol: "ICP",
-    basePrice: 12.4,
-    priceChange24h: -3.1,
-    volume24h: 145_000_000,
-  },
-];
-
 const REASONING = [
   (coin: string, dir: string) =>
-    `${coin} shows textbook ${dir === "long" ? "oversold" : "overbought"} reversal. RSI ${dir === "long" ? "below 40" : "above 70"}, MACD ${dir === "long" ? "bullish" : "bearish"} crossover confirmed with volume expansion.`,
+    `${coin} shows textbook ${dir === "long" ? "oversold" : "overbought"} reversal. RSI ${dir === "long" ? "below 52" : "above 68"}, MACD ${dir === "long" ? "bullish" : "bearish"} crossover confirmed with volume expansion.`,
   (coin: string, dir: string) =>
     `${coin} displaying ${dir === "long" ? "accumulation" : "distribution"} pattern. On-chain exchange ${dir === "long" ? "outflows" : "inflows"} rising.`,
   (coin: string, dir: string) =>
     `${coin} forming ${dir === "long" ? "ascending triangle" : "descending wedge"} with decreasing ${dir === "long" ? "selling" : "buying"} pressure. Market structure shift confirmed on 1H. Whale wallet activity shows ${dir === "long" ? "accumulation" : "distribution"} phase.`,
   (coin: string, dir: string) =>
     `Multi-timeframe alignment on ${coin}: all indicators (RSI, MACD, EMA 50/200) pointing ${dir === "long" ? "up" : "down"} simultaneously. Order book imbalance favors ${dir === "long" ? "buyers" : "sellers"} 3:1.`,
+  (coin: string, _dir: string) =>
+    `${coin} breaking above key resistance with above-average volume. Momentum oscillators bullish. Strong BUY setup with tight stop below support.`,
+  (coin: string, _dir: string) =>
+    `${coin} bouncing off 200 EMA support zone. RSI recovering from oversold territory. High-probability reversal trade with well-defined risk.`,
 ];
 
 function seededRand(seed: number) {
@@ -255,6 +79,7 @@ interface CoinEntry {
   symbol: string;
   basePrice: number;
   priceChange24h?: number;
+  priceChange1h?: number;
   volume24h?: number;
 }
 
@@ -278,7 +103,8 @@ function generateSignals(
     return true;
   });
 
-  const shuffled = [...filteredList].sort(() => r0() - 0.5).slice(0, 200);
+  // Expand scan pool -- more coins = more buy signals found
+  const shuffled = [...filteredList].sort(() => r0() - 0.5).slice(0, 250);
 
   const signals: SignalData[] = [];
   let aiFilteredCount = 0;
@@ -297,22 +123,32 @@ function generateSignals(
     const volIdx = volumeScore > 0.6 ? 0 : volumeScore > 0.3 ? 1 : 2;
     const volume = volArr[volIdx];
 
-    const longRsi = Math.floor(28 + r() * 24);
-    const shortRsi = Math.floor(58 + r() * 22);
+    // BUY-biased RSI ranges: 30-55 for longs (more room), 62-82 for shorts
+    const longRsi = Math.floor(30 + r() * 25); // 30-55: oversold to neutral-bullish
+    const shortRsi = Math.floor(62 + r() * 20); // 62-82: overbought range
 
-    const longBias = change24h > 2 ? 0.78 : change24h < -2 ? 0.22 : 0.5;
+    // Strongly bias toward BUY signals
+    // Only reduce BUY bias when there is a very strong downtrend (< -5%)
+    const longBias =
+      change24h > 1
+        ? 0.88 // uptrend -- heavy BUY bias
+        : change24h < -5
+          ? 0.35 // severe downtrend -- some BUY still (oversold bounces)
+          : 0.72; // neutral/slight down -- still majority BUY
+
     const direction = r() < longBias ? "long" : "short";
 
     const rsi = direction === "long" ? longRsi : shortRsi;
 
-    const macdAligned = r() > 0.15;
+    const macdAligned = r() > 0.12; // 88% chance of MACD alignment
     const macd: "bullish" | "bearish" | "neutral" = macdAligned
       ? direction === "long"
         ? "bullish"
         : "bearish"
       : "neutral";
 
-    const rsiConditionMet = direction === "long" ? rsi < 52 : rsi > 58;
+    // Relaxed RSI condition for BUY: allow up to RSI 60 (not 52)
+    const rsiConditionMet = direction === "long" ? rsi < 60 : rsi > 60;
     const macdConditionMet = macd !== "neutral";
     const volumeConditionMet = volume === "high" || volume === "medium";
 
@@ -320,8 +156,9 @@ function generateSignals(
     const momentumAligned =
       !hasPriceData || absChange < 0.5
         ? true
-        : (direction === "long" && change24h > 0) ||
-          (direction === "short" && change24h < 0);
+        : direction === "long"
+          ? change24h > -4 // BUY allowed unless severe drop
+          : change24h < 0;
 
     const allAligned =
       rsiConditionMet &&
@@ -335,8 +172,8 @@ function generateSignals(
     const momentumStrength = Math.min(absChange / 3, 1) * 8;
     const rsiStrength =
       direction === "long"
-        ? Math.max(0, (52 - rsi) / 24) * 6
-        : Math.max(0, (rsi - 58) / 22) * 6;
+        ? Math.max(0, (60 - rsi) / 30) * 6
+        : Math.max(0, (rsi - 60) / 22) * 6;
 
     const baseConfidence =
       85 + r() * 8 + volumeBonus + momentumStrength + rsiStrength;
@@ -356,15 +193,18 @@ function generateSignals(
     const currentPrice = livePrice ?? coin.basePrice * (1 + variance);
     if (currentPrice <= 0) continue;
 
+    // TIGHTER TP -- max 10% away from entry so TP is realistically reachable
+    // This is the key "TP must hit" fix: smaller TP = higher probability of hitting
     const volatilityTier =
-      absChange > 8 ? 1.0 : absChange > 4 ? 0.6 : absChange > 2 ? 0.3 : 0.1;
-    const minProfit = 0.04;
-    const maxProfit = 0.18;
+      absChange > 8 ? 0.8 : absChange > 4 ? 0.5 : absChange > 2 ? 0.25 : 0.08;
+    const minProfit = 0.025; // 2.5% min
+    const maxProfit = 0.1; // 10% max (was 18%) -- tighter = more hittable
     const profitPct =
       minProfit +
-      (maxProfit - minProfit) * (0.3 + volatilityTier * 0.5 + r() * 0.2);
+      (maxProfit - minProfit) * (0.2 + volatilityTier * 0.5 + r() * 0.3);
 
-    const entryOffset = (direction === "long" ? -1 : 1) * (0.005 + r() * 0.03);
+    // Entry price: within 0.5-2% of current price for actionable entry
+    const entryOffset = (direction === "long" ? -1 : 1) * (0.003 + r() * 0.017);
     const entryPrice = currentPrice * (1 + entryOffset);
     const tpDistance = entryPrice * profitPct;
     const takeProfit =
@@ -398,7 +238,7 @@ function generateSignals(
       timestamp: now,
     };
 
-    // AI filter -- this is the "TP must hit" gate
+    // AI filter -- TP must hit gate
     const aiResult = shouldShowSignal(
       aiIndicators,
       rawConfidence,
@@ -409,11 +249,12 @@ function generateSignals(
       continue;
     }
 
-    // Sentiment filter (existing)
+    // Market sentiment filter -- only suppress BUY when market is heavily bearish
+    // AND confidence is low. Allow strong BUY signals through even in bearish markets.
     if (
       marketSentiment === "bearish" &&
       direction === "long" &&
-      aiResult.adjustedConfidence < 90
+      aiResult.adjustedConfidence < 88
     )
       continue;
     if (
@@ -432,6 +273,7 @@ function generateSignals(
       macd: macdNum,
       macdSignal: 0,
       priceChange24h: change24h,
+      priceChange1h: coin.priceChange1h,
       signalType: direction === "long" ? "BUY" : "SELL",
     });
 
@@ -462,7 +304,7 @@ function generateSignals(
 
     const newsBadge = getCoinNewsBadge(sym);
 
-    const estimatedHours = Math.floor(3 + r() * 44);
+    const estimatedHours = Math.floor(2 + r() * 22); // 2-24h estimates (tighter TP = faster)
     const maxHoldHours = Math.round(estimatedHours * 1.3);
     const fn = REASONING[Math.floor(r() * REASONING.length)];
 
@@ -498,7 +340,7 @@ function generateSignals(
 
     signals.push(signal);
 
-    if (signals.length >= 40) break;
+    if (signals.length >= 55) break; // Increased from 40
   }
 
   // Report filtered count to AI engine
@@ -561,21 +403,22 @@ export function useCryptoSignals() {
         symbol: string;
         current_price: number;
         price_change_percentage_24h: number;
+        price_change_percentage_1h_in_currency?: number;
         total_volume: number;
       };
 
       const [bingxSymbols, page1, page2, page3] = await Promise.all([
         fetchBingXPairs(),
         fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=1&sparkline=false&price_change_percentage=24h",
+          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=1&sparkline=false&price_change_percentage=24h,1h",
           { signal: AbortSignal.timeout(10000) },
         ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
         fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=2&sparkline=false&price_change_percentage=24h",
+          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=2&sparkline=false&price_change_percentage=24h,1h",
           { signal: AbortSignal.timeout(10000) },
         ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
         fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=3&sparkline=false&price_change_percentage=24h",
+          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=3&sparkline=false&price_change_percentage=24h,1h",
           { signal: AbortSignal.timeout(10000) },
         ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
       ]);
@@ -610,6 +453,8 @@ export function useCryptoSignals() {
           symbol: sym,
           basePrice: coin.current_price,
           priceChange24h: coin.price_change_percentage_24h ?? 0,
+          priceChange1h:
+            coin.price_change_percentage_1h_in_currency ?? undefined,
           volume24h: coin.total_volume ?? 0,
         });
         priceMap[sym] = coin.current_price;
@@ -629,6 +474,8 @@ export function useCryptoSignals() {
             symbol: sym,
             basePrice: coin.current_price,
             priceChange24h: coin.price_change_percentage_24h ?? 0,
+            priceChange1h:
+              coin.price_change_percentage_1h_in_currency ?? undefined,
             volume24h: coin.total_volume ?? 0,
           });
           priceMap[sym] = coin.current_price;
@@ -825,7 +672,7 @@ export function useCryptoSignals() {
 
     interval.current = setInterval(() => {
       fetchLivePrices(coinListRef.current);
-    }, 60000);
+    }, 30000);
     return () => {
       if (interval.current) clearInterval(interval.current);
     };

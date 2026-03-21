@@ -1,5 +1,8 @@
-import { Globe, Linkedin, Quote } from "lucide-react";
+import { Globe, Instagram, Quote } from "lucide-react";
 import { motion } from "motion/react";
+
+const INSTAGRAM_URL =
+  "https://www.instagram.com/malverin_stonehart?igsh=emUwMWVkOHY3bWMz&utm_source=qr";
 
 export default function FounderSection() {
   return (
@@ -140,14 +143,24 @@ export default function FounderSection() {
               ))}
             </div>
 
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="button"
+            {/* Social buttons */}
+            <div className="flex items-center gap-3 pt-1 flex-wrap">
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 data-ocid="founder.link"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-gold/30 text-foreground/65 hover:text-gold transition-colors text-sm"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background:
+                    "linear-gradient(135deg, oklch(55% 0.18 5 / 0.12), oklch(60% 0.2 340 / 0.08))",
+                  border: "1px solid oklch(60% 0.15 5 / 0.3)",
+                  color: "oklch(45% 0.15 5)",
+                }}
               >
-                <Linkedin className="w-4 h-4" /> LinkedIn
-              </button>
+                <Instagram className="w-4 h-4" />
+                Instagram
+              </a>
               <button
                 type="button"
                 data-ocid="founder.link"
@@ -156,6 +169,57 @@ export default function FounderSection() {
                 <Globe className="w-4 h-4" /> Portfolio
               </button>
             </div>
+
+            {/* Contact & Activation Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="rounded-2xl p-5"
+              style={{
+                background:
+                  "linear-gradient(135deg, oklch(96% 0.01 60 / 0.7), oklch(97% 0.005 240 / 0.8))",
+                border: "1px solid oklch(62% 0.15 60 / 0.2)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base">📱</span>
+                <h3
+                  className="text-sm font-bold font-mono uppercase tracking-wider"
+                  style={{ color: "oklch(45% 0.13 60)" }}
+                >
+                  Order Trading Access
+                </h3>
+              </div>
+              <p className="text-sm text-foreground/65 mb-4">
+                Message{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: "oklch(45% 0.13 60)" }}
+                >
+                  @malverin_stonehart
+                </span>{" "}
+                on Instagram to activate your account for unlimited signal
+                access.
+              </p>
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-ocid="founder.button"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all"
+                style={{
+                  background:
+                    "linear-gradient(135deg, oklch(55% 0.18 5), oklch(50% 0.2 340))",
+                  color: "white",
+                  boxShadow: "0 4px 16px oklch(55% 0.18 5 / 0.3)",
+                }}
+              >
+                <Instagram className="w-4 h-4" />
+                Message on Instagram
+              </a>
+            </motion.div>
           </motion.div>
         </div>
       </div>

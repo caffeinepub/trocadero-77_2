@@ -48,7 +48,7 @@ function tradeToSignal(
     entryPrice: trade.entryPrice,
     takeProfit: trade.takeProfit,
     stopLoss: trade.stopLoss,
-    confidence: 88,
+    confidence: trade.confidence ?? 88,
     estimatedHours: 12,
     direction: trade.direction,
     reasoning: `${trade.coinName} was selected for tracking. Technical indicators showed a strong ${
@@ -57,16 +57,16 @@ function tradeToSignal(
     profitPercent: trade.profitPercent,
     hitTarget,
     timestamp: trade.trackedAt,
-    rsi: isBuy ? 38 : 67,
-    macd: isBuy ? "bullish" : "bearish",
-    volume: "medium",
+    rsi: trade.rsi ?? (isBuy ? 38 : 67),
+    macd: trade.macd ?? (isBuy ? "bullish" : "bearish"),
+    volume: trade.volume ?? "medium",
     trend: isBuy ? "Uptrend" : "Downtrend",
     safeExitPrice: trade.safeExitPrice,
     maxHoldHours: 24,
-    learningBoost: 0,
-    dumpRisk: 0,
+    learningBoost: trade.learningBoost ?? 0,
+    dumpRisk: trade.dumpRisk ?? 0,
     signalStrength: "strong" as const,
-    tpProbability: 75,
+    tpProbability: trade.tpProbability ?? 75,
     newsBadge: null,
     aiDumpRisk: "LOW" as const,
   };
@@ -160,7 +160,7 @@ function TradeTrackCard({
           Math.max(
             0,
             ((trade.entryPrice - currentPrice) /
-              (trade.entryPrice - trade.stopLoss)) *
+              (trade.entryPrice - trade.takeProfit)) *
               100,
           ),
         );
@@ -475,7 +475,7 @@ export default function TrackingPage({
         sl: trade.stopLoss,
         currentPrice,
         trackedAt: trade.trackedAt,
-        confidence: 88,
+        confidence: trade.confidence ?? 88,
       });
       if (result) {
         autoRecordedRef.current.add(trade.signalId);

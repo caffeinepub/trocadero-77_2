@@ -1,13 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
+import { Clock, TrendingDown, TrendingUp } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
 import type { SignalData } from "../hooks/useCryptoSignals";
 import { hasLearningData } from "../hooks/useLearningEngine";
 import { ConfidenceRing } from "./ConfidenceRing";
@@ -281,8 +274,6 @@ export default function SignalCardSection({
   trackedIds,
   isLoading,
 }: Props) {
-  const [isListOpen, setIsListOpen] = useState(false);
-
   return (
     <section
       id="signals"
@@ -330,22 +321,6 @@ export default function SignalCardSection({
         </div>
       ) : (
         <>
-          <div className="mb-4 hidden">
-            <button
-              type="button"
-              className="flex items-center gap-2 text-sm font-mono text-foreground/70 hover:text-foreground transition-colors"
-              onClick={() => setIsListOpen((v) => !v)}
-            >
-              {isListOpen ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-              {signals.length} signals (
-              {signals.filter((s) => s.direction === "long").length} long,{" "}
-              {signals.filter((s) => s.direction === "short").length} short)
-            </button>
-          </div>
           <SignalCarousel
             signals={signals}
             onSelectSignal={onSelectSignal}

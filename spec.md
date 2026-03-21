@@ -1,53 +1,38 @@
-# Trocadero 77 -- Fully Enhanced AI Trading System
+# Trocadero 77
 
 ## Current State
-The app has a basic AI layer that:
-- Auto-learns from TP/SL hits on tracked trades
-- Blacklists poor-performing coins
-- Applies a basic market sentiment filter
-- Shows dump risk warnings
-- Displays an AI Intelligence panel
-Confidence threshold is fixed at 85%. No news integration. No pattern learning. No TP probability scoring.
+- Full-stack crypto signal platform with Home, Trade Now, Active Signals, High Profit, Fast Trades, Tracking, Search, Founder tabs
+- Admin panel currently shows as a fixed fullscreen overlay when admin logs in
+- Fast Trading section has over-strict filters (confidence >= 88, tpProbability >= 80, signalStrength === 'strong', estimatedHours <= 6) resulting in no signals showing
+- Trade Now tab still renders HeroSection alongside EnterNowSection (mixed content)
+- No post creation/management capability in admin panel
+- No post display on home page
 
 ## Requested Changes (Diff)
 
 ### Add
-- **aiEngine.ts** -- Centralized AI brain module with:
-  - Pattern learning: records which RSI ranges, MACD states, volume conditions, and time-of-day correlate with TP hits
-  - TP probability scoring: composite score predicting likelihood TP will be hit (shown on card as % TP Probability)
-  - Auto-adjusting confidence threshold: if win rate drops below 70%, threshold rises to 90%; if above 85%, can drop to 83%
-  - Coin reputation system: tracks per-coin TP hit rate, filters coins below 60% hit rate
-  - Hourly pattern weights: learns which hours of day produce winning signals
-  - Category reputation: layer-1, DeFi, meme -- suppresses underperforming categories
-  - Consecutive loss guard: if 3+ tracked losses in a row, halts new signals for 10 minutes (circuit breaker)
-  - Trailing stop logic: raises SL as price moves toward TP, locking in profit
-  - AI confidence breakdown: shows which factors boosted or penalized confidence
-- **newsEngine.ts** -- News signal integration:
-  - Fetches from CryptoCompare news API (free, no key needed for basic) and CoinGecko trending
-  - Sentiment scoring per coin: positive/negative/neutral from headline keywords
-  - Suppresses BUY signals on coins with negative news in last 6 hours
-  - Boosts confidence up to +8% on coins with strong positive news
-  - Shows news badge on signal cards (positive/negative/trending)
-  - News feed widget on Home tab showing latest crypto headlines
-- **TP Probability Score**: Every signal gets a TP probability % (separate from confidence). Only signals with TP probability >= 75% are shown. This is the key "TP must hit" filter.
-- **AI Learning Dashboard** on Home tab: shows current threshold, pattern weights, top performing coins, category stats, news sentiment overview, circuit breaker status
+- `src/frontend/src/lib/postsManager.ts` — localStorage CRUD for admin posts (id, title, content, imageUrl base64, isPromotional, createdAt)
+- `src/frontend/src/components/PostsFeed.tsx` — Displays admin posts on the home page; promotional posts get animated gradient border + pulsing badge; regular posts shown as clean cards
+- Posts tab in AdminPanel with: create/edit/delete posts, image upload (FileReader -> base64), title, content fields, and a "Promotional" toggle that makes the post display with special animations on home page
+- "Admin Panel" tab in the Navbar snackbar, only visible when `currentUser?.isAdmin === true`; navigates to `adminpanel` section
 
 ### Modify
-- Signal generation: integrate aiEngine and newsEngine into scoring pipeline
-- SignalCard: show TP Probability %, news badge, AI confidence breakdown tooltip
-- SignalDetail modal: show full AI reasoning (which patterns matched, news sentiment, TP probability breakdown)
-- App.tsx: wire aiEngine learning callbacks on tracked trade TP/SL outcomes
-- Home tab: replace basic AI panel with full AI Learning Dashboard
+- **FastTradingSection.tsx** — Relax filters: `estimatedHours <= 12` (was 6), `confidence >= 85` (was 88), `tpProbability >= 72` (was 80), remove `signalStrength === 'strong'` requirement; also show carousel when >= 1 signal (not >= 3)
+- **App.tsx** — Remove `HeroSection` from `tradenow` case so Trade Now is its own clean page; remove `showAdminPanel` overlay state and fixed AdminPanel rendering; add `adminpanel` case to `renderContent` that renders `<AdminPanel>` as normal page content; navigate to `adminpanel` on admin login; pass `isAdmin` to Navbar
+- **Navbar.tsx** — Accept `isAdmin` prop; add `{ id: 'adminpanel', label: '⚙ Admin Panel' }` tab only when `isAdmin === true`; style it with a distinct gold/amber color to differentiate from normal tabs
+- **AdminPanel.tsx** — Convert from `fixed inset-0 z-[300]` fullscreen overlay to a normal `<section>` page component (no fixed positioning); add internal tab navigation between "Users" and "Posts"; redesign with rich dark theme, animated stat cards, motion transitions between tabs, particle/glow effects on header; Posts tab: list of posts with edit/delete, create form with title input, content textarea, image upload button (hidden file input), promotional toggle with animation preview, save button
+- **HeroSection.tsx** (or home case in App.tsx) — Include `<PostsFeed />` component below the AI dashboard content
 
 ### Remove
-- Old basic AI panel (replaced by full dashboard)
-- Hardcoded 85% fixed threshold (replaced by auto-adjusting)
+- Fixed fullscreen AdminPanel overlay from App.tsx render tree
+- `showAdminPanel` state from App.tsx
+- `onOpenAdmin` prop usage (replaced by nav tab)
+- `HeroSection` from the `tradenow` case in `renderContent`
 
 ## Implementation Plan
-1. Create `src/frontend/src/lib/aiEngine.ts` -- full AI brain with all learning systems
-2. Create `src/frontend/src/lib/newsEngine.ts` -- news fetching and sentiment scoring
-3. Update signal generation in App.tsx to use aiEngine scoring + newsEngine sentiment
-4. Update SignalCard to show TP probability, news badge, strength meter
-5. Update SignalDetail modal to show full AI reasoning breakdown
-6. Update Home tab with full AI Learning Dashboard
-7. Validate and deploy
+1. Create `lib/postsManager.ts` with Post type and CRUD functions
+2. Create `components/PostsFeed.tsx` — reads posts from postsManager, renders with animations; promotional posts have animated gradient border and "PROMO" pulsing badge
+3. Rewrite `components/AdminPanel.tsx` as a page component with Users + Posts tabs, rich animated dark UI
+4. Update `components/Navbar.tsx` to add conditional Admin Panel tab
+5. Update `components/FastTradingSection.tsx` to relax signal filters
+6. Update `App.tsx` — remove overlay, add adminpanel route, fix tradenow page, add PostsFeed to home

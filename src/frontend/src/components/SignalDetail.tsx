@@ -391,7 +391,7 @@ export default function SignalDetail({
       ? Math.round(
           (symbolData.wins / (symbolData.wins + symbolData.losses)) * 100,
         )
-      : 87;
+      : null;
   const prevPriceRef = useRef(0);
   const signalOpenTimeRef = useRef<number>(Date.now());
   const [secondsElapsed, setSecondsElapsed] = useState(0);
@@ -1154,7 +1154,9 @@ export default function SignalDetail({
                           className="text-xs font-mono font-bold"
                           style={{ color: "oklch(44% 0.15 60)" }}
                         >
-                          {historicalWinRate}%
+                          {historicalWinRate !== null
+                            ? `${historicalWinRate}%`
+                            : "Not enough data"}
                         </span>
                       </div>
                       <div

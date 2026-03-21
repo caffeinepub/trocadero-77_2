@@ -53,6 +53,26 @@ function saveCache(cache: NewsCache): void {
   }
 }
 
+// Retry helper: retries a fetch up to maxRetries times with delayMs between attempts
+async function fetchWithRetry<T>(
+  fetcher: () => Promise<T>,
+  maxRetries = 3,
+  delayMs = 2000,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fetcher();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // Sentiment keyword scoring
 const POSITIVE_KEYWORDS = [
   "surge",
@@ -231,9 +251,11 @@ async function fetchCryptoCompareNews(): Promise<
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(
-      "https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest",
-      { signal: controller.signal },
+    const res = await fetchWithRetry(() =>
+      fetch(
+        "https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest",
+        { signal: controller.signal },
+      ),
     );
     clearTimeout(timeout);
     if (!res.ok) return [];
@@ -275,9 +297,10 @@ async function fetchCoinGeckoTrending(): Promise<
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/search/trending",
-      { signal: controller.signal },
+    const res = await fetchWithRetry(() =>
+      fetch("https://api.coingecko.com/api/v3/search/trending", {
+        signal: controller.signal,
+      }),
     );
     clearTimeout(timeout);
     if (!res.ok) return [];
