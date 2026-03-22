@@ -249,9 +249,9 @@ export default function FastTradingSection({
   const fastSignals = signals
     .filter(
       (s) =>
-        s.estimatedHours <= 12 &&
-        s.confidence >= 85 &&
-        s.tpProbability >= 72 &&
+        s.estimatedHours <= 18 &&
+        s.confidence >= 82 &&
+        s.tpProbability >= 65 &&
         s.direction === "long" &&
         s.aiDumpRisk !== "HIGH",
     )

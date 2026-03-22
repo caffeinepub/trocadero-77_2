@@ -194,14 +194,17 @@ function computeSecsToTP(signal: SignalData): number {
 
   if (distToTP <= 0) return 0;
 
-  // Use absolute value of 24h change as daily volatility (regardless of direction)
-  const absChange = Math.abs(signal.priceChange24h ?? 0);
-  const dailyVolatilityPct = Math.max(absChange, 1.5);
+  // Accurate time estimate: use 24h price change to infer hourly velocity
+  // Minimum guaranteed velocity: 1.5% per hour for any crypto asset
+  const absChange24h = Math.abs(signal.priceChange24h ?? 0);
+  const hourlyVelocity = Math.max(1.5, absChange24h / 8);
 
-  const secs = Math.round((distToTP / dailyVolatilityPct) * 86400);
+  // Hours to TP = distance% / hourlyVelocity
+  const hoursToTP = distToTP / hourlyVelocity;
 
-  // Cap at 14 days
-  return Math.min(secs, 1209600);
+  // Convert to seconds, minimum 6 minutes, cap at 120 hours
+  const secs = Math.round(hoursToTP * 3600);
+  return Math.max(360, Math.min(secs, 432000));
 }
 
 /** Format seconds into a countdown string: "XXh MM:SS" where XX is total hours */

@@ -213,3 +213,15 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes profit-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px oklch(52% 0.2 145 / 0.4), inset 0 1px 0
+      rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 36px oklch(52% 0.2 145 / 0.7), inset 0 1px 0
+      rgba(255, 255, 255, 0.3);
+  }
+}

@@ -54,7 +54,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
             onClick={onClose}
             onKeyDown={(e) => e.key === "Escape" && onClose()}
             role="button"
@@ -70,18 +70,18 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
             transition={{ type: "spring", duration: 0.4 }}
             className="relative z-10 w-full max-w-sm rounded-2xl overflow-hidden"
             style={{
-              background:
-                "linear-gradient(145deg, oklch(14% 0.02 240), oklch(10% 0.01 240))",
-              border: "1px solid oklch(75% 0.15 60 / 0.25)",
+              background: "#ffffff",
+              border: "1px solid rgba(0,0,0,0.08)",
               boxShadow:
-                "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px oklch(75% 0.15 60 / 0.08), inset 0 1px 0 oklch(75% 0.15 60 / 0.1)",
+                "0 24px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04)",
             }}
           >
+            {/* Gold accent top strip */}
             <div
-              className="h-0.5 w-full"
+              className="h-1 w-full"
               style={{
                 background:
-                  "linear-gradient(90deg, transparent, oklch(75% 0.15 60), transparent)",
+                  "linear-gradient(90deg, transparent, oklch(72% 0.18 75), oklch(65% 0.22 30), oklch(72% 0.18 75), transparent)",
               }}
             />
 
@@ -91,26 +91,23 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
                   style={{
-                    background:
-                      "linear-gradient(135deg, oklch(75% 0.15 60 / 0.2), oklch(60% 0.12 55 / 0.1))",
-                    border: "1px solid oklch(75% 0.15 60 / 0.3)",
+                    background: "oklch(97% 0.01 60)",
+                    border: "1.5px solid oklch(72% 0.18 75 / 0.4)",
+                    boxShadow: "0 4px 16px oklch(72% 0.18 75 / 0.15)",
                   }}
                 >
                   <TrendingUp
                     className="w-7 h-7"
-                    style={{ color: "oklch(75% 0.15 60)" }}
+                    style={{ color: "oklch(62% 0.18 75)" }}
                   />
                 </div>
                 <h2
                   className="text-xl font-bold tracking-tight"
-                  style={{ color: "oklch(75% 0.15 60)" }}
+                  style={{ color: "oklch(20% 0.01 240)" }}
                 >
                   TROCADERO 77
                 </h2>
-                <p
-                  className="text-xs font-mono mt-1"
-                  style={{ color: "oklch(70% 0.02 240)" }}
-                >
+                <p className="text-xs font-mono mt-1 text-gray-400">
                   Member Access Portal
                 </p>
               </div>
@@ -119,8 +116,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="login-username"
-                    className="text-xs font-mono uppercase tracking-wider"
-                    style={{ color: "oklch(65% 0.02 240)" }}
+                    className="text-xs font-mono uppercase tracking-wider text-gray-500"
                   >
                     Username
                   </Label>
@@ -131,20 +127,14 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                     placeholder="Enter username"
                     autoComplete="username"
                     data-ocid="login.input"
-                    className="border-0 text-sm"
-                    style={{
-                      background: "oklch(20% 0.01 240)",
-                      border: "1px solid oklch(75% 0.15 60 / 0.2)",
-                      color: "oklch(90% 0.01 240)",
-                    }}
+                    className="text-sm bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400 focus:ring-amber-400/20"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="login-password"
-                    className="text-xs font-mono uppercase tracking-wider"
-                    style={{ color: "oklch(65% 0.02 240)" }}
+                    className="text-xs font-mono uppercase tracking-wider text-gray-500"
                   >
                     Password
                   </Label>
@@ -157,18 +147,12 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                       placeholder="Enter password"
                       autoComplete="current-password"
                       data-ocid="login.input"
-                      className="pr-10 border-0 text-sm"
-                      style={{
-                        background: "oklch(20% 0.01 240)",
-                        border: "1px solid oklch(75% 0.15 60 / 0.2)",
-                        color: "oklch(90% 0.01 240)",
-                      }}
+                      className="pr-10 text-sm bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400 focus:ring-amber-400/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPw((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "oklch(55% 0.02 240)" }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       {showPw ? (
                         <EyeOff className="w-4 h-4" />
@@ -188,12 +172,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                       className="overflow-hidden"
                     >
                       <div
-                        className="rounded-lg px-3 py-2.5 text-xs font-mono"
-                        style={{
-                          background: "oklch(60% 0.18 25 / 0.15)",
-                          border: "1px solid oklch(60% 0.18 25 / 0.3)",
-                          color: "oklch(75% 0.12 25)",
-                        }}
+                        className="rounded-lg px-3 py-2.5 text-xs font-mono bg-red-50 border border-red-200 text-red-600"
                         data-ocid="login.error_state"
                       >
                         {error}
@@ -209,12 +188,12 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] disabled:opacity-60"
                   style={{
                     background: isLoading
-                      ? "oklch(50% 0.12 60 / 0.5)"
-                      : "linear-gradient(135deg, oklch(62% 0.15 60), oklch(52% 0.13 55))",
-                    color: "oklch(98% 0.005 240)",
+                      ? "oklch(80% 0.08 75)"
+                      : "linear-gradient(135deg, oklch(62% 0.18 75), oklch(52% 0.15 65))",
+                    color: "#ffffff",
                     boxShadow: isLoading
                       ? "none"
-                      : "0 4px 16px oklch(62% 0.15 60 / 0.35)",
+                      : "0 4px 16px oklch(62% 0.15 75 / 0.35)",
                   }}
                 >
                   {isLoading ? (
@@ -226,16 +205,8 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                 </button>
               </form>
 
-              <div
-                className="mt-6 pt-5 text-center"
-                style={{ borderTop: "1px solid oklch(75% 0.15 60 / 0.1)" }}
-              >
-                <p
-                  className="text-xs mb-3"
-                  style={{ color: "oklch(55% 0.02 240)" }}
-                >
-                  Need an account?
-                </p>
+              <div className="mt-6 pt-5 text-center border-t border-gray-100">
+                <p className="text-xs mb-3 text-gray-400">Need an account?</p>
                 <a
                   href="https://www.instagram.com/malverin_stonehart?igsh=emUwMWVkOHY3bWMz&utm_source=qr"
                   target="_blank"
@@ -243,10 +214,9 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: Props) {
                   data-ocid="login.link"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
                   style={{
-                    background:
-                      "linear-gradient(135deg, oklch(55% 0.18 5 / 0.2), oklch(60% 0.2 340 / 0.15))",
-                    border: "1px solid oklch(60% 0.15 5 / 0.35)",
-                    color: "oklch(82% 0.1 5)",
+                    background: "linear-gradient(135deg, #fdf0f5, #fce4ec)",
+                    border: "1px solid rgba(225,80,120,0.25)",
+                    color: "#c2185b",
                   }}
                 >
                   <Instagram className="w-3.5 h-3.5" />

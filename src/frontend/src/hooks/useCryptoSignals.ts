@@ -304,7 +304,19 @@ function generateSignals(
 
     const newsBadge = getCoinNewsBadge(sym);
 
-    const estimatedHours = Math.floor(2 + r() * 22); // 2-24h estimates (tighter TP = faster)
+    // Accurate estimatedHours: based on TP distance % and 24h momentum
+    const tpDistancePct =
+      (Math.abs(takeProfit - entryPrice) / entryPrice) * 100;
+    const hourlyVelocity = Math.max(0.5, Math.abs(change24h) / 24);
+    const baseHoursToTP = tpDistancePct / hourlyVelocity;
+    // Apply tier-based capping
+    const estimatedHours = Math.max(
+      1,
+      Math.min(
+        tpDistancePct <= 2 ? 8 : tpDistancePct <= 5 ? 16 : 36,
+        Math.round(baseHoursToTP * (0.8 + r() * 0.4)),
+      ),
+    );
     const maxHoldHours = Math.round(estimatedHours * 1.3);
     const fn = REASONING[Math.floor(r() * REASONING.length)];
 

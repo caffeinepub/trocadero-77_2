@@ -62,7 +62,9 @@ export default function App() {
   });
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const { trackedTrades, trackedIds, addTrade, removeTrade } = useTrackTrades();
+  const { trackedTrades, trackedIds, addTrade, removeTrade } = useTrackTrades(
+    currentUser?.username,
+  );
 
   const scrollTo = useCallback((id: string) => {
     setActiveSection(id);

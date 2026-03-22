@@ -1,6 +1,6 @@
 import { Activity, TrendingDown, TrendingUp, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SignalData } from "../hooks/useCryptoSignals";
 import {
   incrementAutoLearnCount,
@@ -78,6 +78,8 @@ interface TradeCardProps {
   onViewDetails: () => void;
   livePrices: Record<string, number>;
   now: number;
+  hitStatus?: "hit" | "missed" | null;
+  onUpdateStatus?: (signalId: string, isHit: boolean) => void;
 }
 
 function TradeTrackCard({
@@ -86,6 +88,8 @@ function TradeTrackCard({
   onViewDetails,
   livePrices,
   now,
+  hitStatus,
+  onUpdateStatus,
 }: TradeCardProps) {
   const isBuy = trade.direction === "long";
   const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
@@ -263,12 +267,78 @@ function TradeTrackCard({
           </div>
         )}
 
-        {/* TP Hit banner */}
+        {/* TP Hit banner - Profit Taken with Hit/Missed buttons */}
         {hitTP && (
-          <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-signal-buy/10 border border-signal-buy/25">
-            <span className="text-signal-buy font-bold text-sm">
-              🎯 Take Profit Hit!
-            </span>
+          <div className="mb-3">
+            {/* Profit Taken Banner */}
+            <div
+              className="rounded-2xl p-4 mb-2 text-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, oklch(45% 0.2 145), oklch(55% 0.22 155))",
+                boxShadow:
+                  "0 0 20px oklch(52% 0.2 145 / 0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
+                animation: "profit-pulse 2s ease-in-out infinite",
+              }}
+            >
+              <div className="text-2xl mb-1">🎯</div>
+              <div className="font-display font-bold text-white text-xl tracking-tight">
+                PROFIT TAKEN
+              </div>
+              <div className="text-white/90 font-mono font-bold text-sm mt-1">
+                +{trade.profitPercent.toFixed(1)}% Achieved
+              </div>
+            </div>
+
+            {/* Hit / Missed buttons or status badge */}
+            {hitStatus === null || hitStatus === undefined ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus?.(trade.signalId, true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    background: "oklch(62% 0.18 145)",
+                    color: "white",
+                    boxShadow: "0 4px 12px oklch(62% 0.18 145 / 0.4)",
+                  }}
+                  data-ocid="tracking.confirm_button"
+                >
+                  ✓ Mark as Hit
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateStatus?.(trade.signalId, false);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    background: "oklch(58% 0.2 25)",
+                    color: "white",
+                    boxShadow: "0 4px 12px oklch(58% 0.2 25 / 0.4)",
+                  }}
+                  data-ocid="tracking.cancel_button"
+                >
+                  ✗ Mark as Missed
+                </button>
+              </div>
+            ) : hitStatus === "hit" ? (
+              <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-green-50 border border-green-200">
+                <span className="text-green-600 font-bold text-sm">
+                  ✅ Marked as Hit
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 border border-red-200">
+                <span className="text-red-600 font-bold text-sm">
+                  ❌ Marked as Missed
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -454,8 +524,27 @@ export default function TrackingPage({
 }: Props) {
   const [now, setNow] = useState(Date.now());
   const [detailSignal, setDetailSignal] = useState<SignalData | null>(null);
+  const [hitStatusMap, setHitStatusMap] = useState<
+    Record<string, "hit" | "missed" | null>
+  >({});
   // Track which signalIds have already been auto-recorded to avoid duplicates
   const autoRecordedRef = useRef<Set<string>>(new Set());
+
+  const handleUpdateStatus = useCallback(
+    (signalId: string, isHit: boolean) => {
+      setHitStatusMap((prev) => ({
+        ...prev,
+        [signalId]: isHit ? "hit" : "missed",
+      }));
+      const trade = trackedTrades.find((t) => t.signalId === signalId);
+      if (trade) {
+        recordOutcome(trade.symbol, isHit);
+        incrementAutoLearnCount();
+        onAutoLearnUpdate?.();
+      }
+    },
+    [trackedTrades, onAutoLearnUpdate],
+  );
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -580,6 +669,8 @@ export default function TrackingPage({
                       }
                       livePrices={livePrices}
                       now={now}
+                      hitStatus={hitStatusMap[trade.signalId] ?? null}
+                      onUpdateStatus={handleUpdateStatus}
                     />
                   ))}
                 </div>
@@ -611,6 +702,8 @@ export default function TrackingPage({
                       }
                       livePrices={livePrices}
                       now={now}
+                      hitStatus={hitStatusMap[trade.signalId] ?? null}
+                      onUpdateStatus={handleUpdateStatus}
                     />
                   ))}
                 </div>

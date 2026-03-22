@@ -90,8 +90,9 @@ function StatCard({
     <div
       className="relative rounded-2xl p-5 overflow-hidden"
       style={{
-        background: "oklch(12% 0.015 240)",
-        border: `1px solid ${color}30`,
+        background: "#ffffff",
+        border: `1px solid ${color}40`,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
       }}
     >
       {/* Glow orb */}
@@ -110,7 +111,7 @@ function StatCard({
         </div>
         <span
           className="text-xs font-mono uppercase tracking-widest"
-          style={{ color: "oklch(55% 0.03 240)" }}
+          style={{ color: "#6b7280" }}
         >
           {label}
         </span>
@@ -228,15 +229,16 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
             onSubmit={handleSubmit}
             className="rounded-2xl p-6 space-y-4"
             style={{
-              background: "oklch(12% 0.015 240)",
-              border: "1px solid oklch(72% 0.18 75 / 0.2)",
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             }}
             data-ocid="admin.users.modal"
           >
             <div className="flex items-center justify-between mb-2">
               <h3
                 className="font-display font-bold"
-                style={{ color: "oklch(72% 0.18 75)" }}
+                style={{ color: "oklch(40% 0.15 75)" }}
               >
                 {editingUser ? `Edit @${editingUser}` : "Create New User"}
               </h3>
@@ -254,10 +256,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label
-                  className="text-xs font-mono"
-                  style={{ color: "oklch(55% 0.05 240)" }}
-                >
+                <Label className="text-xs font-mono text-gray-500">
                   Username
                 </Label>
                 <Input
@@ -267,15 +266,12 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                   }
                   disabled={!!editingUser}
                   placeholder="username"
-                  className="mt-1 bg-transparent border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400"
                   data-ocid="admin.users.input"
                 />
               </div>
               <div>
-                <Label
-                  className="text-xs font-mono"
-                  style={{ color: "oklch(55% 0.05 240)" }}
-                >
+                <Label className="text-xs font-mono text-gray-500">
                   Password
                 </Label>
                 <div className="relative mt-1">
@@ -288,13 +284,13 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                     placeholder={
                       editingUser ? "Leave blank to keep" : "password"
                     }
-                    className="bg-transparent border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50 pr-9"
+                    className="bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400 pr-9"
                     data-ocid="admin.users.input"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     {showPw ? (
                       <EyeOff className="w-4 h-4" />
@@ -326,12 +322,9 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                       background:
                         form.duration === opt.value
                           ? "oklch(72% 0.18 75)"
-                          : "oklch(18% 0.02 240)",
-                      color:
-                        form.duration === opt.value
-                          ? "white"
-                          : "oklch(55% 0.03 240)",
-                      border: `1px solid ${form.duration === opt.value ? "oklch(72% 0.18 75)" : "oklch(30% 0.02 240)"}`,
+                          : "#f3f4f6",
+                      color: form.duration === opt.value ? "white" : "#6b7280",
+                      border: `1px solid ${form.duration === opt.value ? "oklch(62% 0.18 75)" : "#d1d5db"}`,
                     }}
                   >
                     {opt.label}
@@ -343,7 +336,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
             {formError && (
               <p
                 className="text-xs font-mono"
-                style={{ color: "oklch(65% 0.2 25)" }}
+                style={{ color: "#dc2626" }}
                 data-ocid="admin.users.error_state"
               >
                 ⚠ {formError}
@@ -375,7 +368,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                   setShowForm(false);
                   setEditingUser(null);
                 }}
-                className="border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+                className="border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 data-ocid="admin.users.cancel_button"
               >
                 Cancel
@@ -394,18 +387,15 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
             exit={{ opacity: 0, scale: 0.95 }}
             className="rounded-2xl p-5 space-y-3"
             style={{
-              background: "oklch(12% 0.015 240)",
-              border: "1px solid oklch(65% 0.2 25 / 0.3)",
+              background: "#fff5f5",
+              border: "1px solid #fca5a5",
             }}
             data-ocid="admin.users.dialog"
           >
-            <p
-              className="text-sm font-mono"
-              style={{ color: "oklch(65% 0.2 25)" }}
-            >
+            <p className="text-sm font-mono" style={{ color: "#dc2626" }}>
               Delete user{" "}
-              <strong style={{ color: "white" }}>@{deleteTarget}</strong>? This
-              cannot be undone.
+              <strong style={{ color: "#111827" }}>@{deleteTarget}</strong>?
+              This cannot be undone.
             </p>
             <div className="flex gap-2">
               <Button
@@ -424,7 +414,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                 size="sm"
                 variant="outline"
                 onClick={() => setDeleteTarget(null)}
-                className="border-white/10 text-white/60"
+                className="border-gray-200 text-gray-500"
                 data-ocid="admin.users.cancel_button"
               >
                 Cancel
@@ -437,18 +427,19 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
       {/* Users table */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{ border: "1px solid oklch(25% 0.02 240)" }}
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}
       >
         {users.length === 0 ? (
           <div className="p-8 text-center" data-ocid="admin.users.empty_state">
             <Users
               className="w-8 h-8 mx-auto mb-3"
-              style={{ color: "oklch(40% 0.03 240)" }}
+              style={{ color: "#9ca3af" }}
             />
-            <p
-              className="text-sm font-mono"
-              style={{ color: "oklch(45% 0.03 240)" }}
-            >
+            <p className="text-sm font-mono" style={{ color: "#9ca3af" }}>
               No users yet. Create one above.
             </p>
           </div>
@@ -457,15 +448,15 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
             <thead>
               <tr
                 style={{
-                  background: "oklch(12% 0.015 240)",
-                  borderBottom: "1px solid oklch(22% 0.02 240)",
+                  background: "#f9fafb",
+                  borderBottom: "1px solid #e5e7eb",
                 }}
               >
                 {["User", "Expires", "Status", "Actions"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-left text-xs font-mono uppercase tracking-widest"
-                    style={{ color: "oklch(45% 0.03 240)" }}
+                    style={{ color: "#9ca3af" }}
                   >
                     {h}
                   </th>
@@ -486,9 +477,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                     key={user.username}
                     style={{
                       borderBottom:
-                        i < users.length - 1
-                          ? "1px solid oklch(18% 0.015 240)"
-                          : "none",
+                        i < users.length - 1 ? "1px solid #f3f4f6" : "none",
                     }}
                     data-ocid={`admin.users.row.${i + 1}`}
                   >
@@ -497,20 +486,20 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
                           style={{
-                            background: "oklch(20% 0.02 240)",
-                            color: "oklch(72% 0.18 75)",
+                            background: "oklch(96% 0.04 75)",
+                            color: "oklch(48% 0.18 75)",
                           }}
                         >
                           {user.username[0].toUpperCase()}
                         </div>
-                        <span className="font-mono text-white/80">
+                        <span className="font-mono text-gray-800">
                           @{user.username}
                         </span>
                       </div>
                     </td>
                     <td
                       className="px-4 py-3 font-mono text-xs"
-                      style={{ color: "oklch(55% 0.03 240)" }}
+                      style={{ color: "#6b7280" }}
                     >
                       {fmtDate(user.expiresAt)}
                     </td>
@@ -532,7 +521,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                             <button
                               type="button"
                               onClick={() => startEdit(user)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-amber-50"
                               style={{ color: "oklch(72% 0.18 75)" }}
                               data-ocid={`admin.users.edit_button.${i + 1}`}
                             >
@@ -541,7 +530,7 @@ function UsersTab({ adminUsername }: { adminUsername: string }) {
                             <button
                               type="button"
                               onClick={() => setDeleteTarget(user.username)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-amber-50"
                               style={{ color: "oklch(65% 0.2 25)" }}
                               data-ocid={`admin.users.delete_button.${i + 1}`}
                             >
@@ -624,57 +613,45 @@ function PostsTab() {
         onSubmit={handlePublish}
         className="rounded-2xl p-6 space-y-5"
         style={{
-          background: "oklch(12% 0.015 240)",
-          border: "1px solid oklch(72% 0.18 75 / 0.2)",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
         }}
         data-ocid="admin.posts.modal"
       >
         <h3
           className="font-display font-bold text-base"
-          style={{ color: "oklch(72% 0.18 75)" }}
+          style={{ color: "oklch(40% 0.15 75)" }}
         >
           Create New Post
         </h3>
 
         <div>
-          <Label
-            className="text-xs font-mono"
-            style={{ color: "oklch(55% 0.05 240)" }}
-          >
-            Title
-          </Label>
+          <Label className="text-xs font-mono text-gray-500">Title</Label>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Post title..."
-            className="mt-1 bg-transparent border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50"
+            className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400"
             data-ocid="admin.posts.input"
           />
         </div>
 
         <div>
-          <Label
-            className="text-xs font-mono"
-            style={{ color: "oklch(55% 0.05 240)" }}
-          >
-            Content
-          </Label>
+          <Label className="text-xs font-mono text-gray-500">Content</Label>
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write your post content..."
             rows={4}
-            className="mt-1 bg-transparent border-white/10 text-white placeholder:text-white/30 focus:border-amber-400/50 resize-none"
+            className="mt-1 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-amber-400 resize-none"
             data-ocid="admin.posts.textarea"
           />
         </div>
 
         {/* Image upload */}
         <div>
-          <Label
-            className="text-xs font-mono"
-            style={{ color: "oklch(55% 0.05 240)" }}
-          >
+          <Label className="text-xs font-mono text-gray-500">
             Image (optional)
           </Label>
           <input
@@ -691,11 +668,9 @@ function PostsTab() {
             onClick={() => fileRef.current?.click()}
             className="mt-1 flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-sm transition-all w-full justify-center"
             style={{
-              background: imageUrl
-                ? "oklch(62% 0.18 145 / 0.15)"
-                : "oklch(18% 0.02 240)",
-              border: `1px dashed ${imageUrl ? "oklch(62% 0.18 145 / 0.5)" : "oklch(35% 0.03 240)"}`,
-              color: imageUrl ? "oklch(62% 0.18 145)" : "oklch(55% 0.03 240)",
+              background: imageUrl ? "oklch(62% 0.18 145 / 0.15)" : "#f9fafb",
+              border: `1px dashed ${imageUrl ? "oklch(62% 0.18 145 / 0.6)" : "#d1d5db"}`,
+              color: imageUrl ? "oklch(50% 0.18 145)" : "#6b7280",
             }}
             data-ocid="admin.posts.upload_button"
           >
@@ -713,10 +688,7 @@ function PostsTab() {
 
         {/* Promotional toggle */}
         <div>
-          <Label
-            className="text-xs font-mono mb-2 block"
-            style={{ color: "oklch(55% 0.05 240)" }}
-          >
+          <Label className="text-xs font-mono mb-2 block text-gray-500">
             Promotional Setting
           </Label>
           <motion.button
@@ -728,8 +700,8 @@ function PostsTab() {
             style={{
               background: isPromotional
                 ? "linear-gradient(135deg, oklch(72% 0.18 75 / 0.2), oklch(65% 0.22 30 / 0.2))"
-                : "oklch(18% 0.02 240)",
-              border: `2px solid ${isPromotional ? "oklch(72% 0.18 75)" : "oklch(30% 0.02 240)"}`,
+                : "#f9fafb",
+              border: `2px solid ${isPromotional ? "oklch(72% 0.18 75)" : "#e5e7eb"}`,
               boxShadow: isPromotional
                 ? "0 0 24px oklch(72% 0.18 75 / 0.3)"
                 : "none",
@@ -742,9 +714,7 @@ function PostsTab() {
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
               style={{
-                background: isPromotional
-                  ? "oklch(72% 0.18 75)"
-                  : "oklch(25% 0.02 240)",
+                background: isPromotional ? "oklch(72% 0.18 75)" : "#e5e7eb",
                 boxShadow: isPromotional
                   ? "0 0 16px oklch(72% 0.18 75 / 0.6)"
                   : "none",
@@ -755,16 +725,14 @@ function PostsTab() {
             <div>
               <div
                 style={{
-                  color: isPromotional
-                    ? "oklch(72% 0.18 75)"
-                    : "oklch(55% 0.03 240)",
+                  color: isPromotional ? "oklch(50% 0.18 75)" : "#374151",
                 }}
               >
                 {isPromotional ? "Promotional — ON" : "Mark as Promotional"}
               </div>
               <div
                 className="text-xs font-normal mt-0.5"
-                style={{ color: "oklch(45% 0.03 240)" }}
+                style={{ color: "#9ca3af" }}
               >
                 Gets special animated highlight on homepage
               </div>
@@ -785,13 +753,13 @@ function PostsTab() {
               animate={{ opacity: 1, height: "auto" }}
               className="mt-3 p-3 rounded-xl"
               style={{
-                background: "oklch(15% 0.015 240)",
-                border: "1px solid oklch(35% 0.03 240)",
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
               }}
             >
               <p
                 className="text-xs font-mono mb-2"
-                style={{ color: "oklch(45% 0.03 240)" }}
+                style={{ color: "#9ca3af" }}
               >
                 Preview on homepage:
               </p>
@@ -867,7 +835,7 @@ function PostsTab() {
         <div className="space-y-3" data-ocid="admin.posts.list">
           <h3
             className="font-mono text-xs uppercase tracking-widest"
-            style={{ color: "oklch(45% 0.03 240)" }}
+            style={{ color: "#9ca3af" }}
           >
             Published Posts
           </h3>
@@ -879,8 +847,8 @@ function PostsTab() {
               transition={{ delay: i * 0.05 }}
               className="flex items-center gap-3 p-4 rounded-xl"
               style={{
-                background: "oklch(12% 0.015 240)",
-                border: "1px solid oklch(22% 0.02 240)",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
               }}
               data-ocid={`admin.posts.item.${i + 1}`}
             >
@@ -893,19 +861,16 @@ function PostsTab() {
               ) : (
                 <div
                   className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: "oklch(18% 0.02 240)" }}
+                  style={{ background: "#f3f4f6" }}
                 >
-                  <FileImage
-                    className="w-5 h-5"
-                    style={{ color: "oklch(40% 0.03 240)" }}
-                  />
+                  <FileImage className="w-5 h-5" style={{ color: "#9ca3af" }} />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span
                     className="font-mono text-sm font-medium truncate"
-                    style={{ color: "oklch(80% 0.03 240)" }}
+                    style={{ color: "#111827" }}
                   >
                     {post.title}
                   </span>
@@ -923,7 +888,7 @@ function PostsTab() {
                 </div>
                 <p
                   className="text-xs font-mono truncate mt-0.5"
-                  style={{ color: "oklch(45% 0.03 240)" }}
+                  style={{ color: "#9ca3af" }}
                 >
                   {post.content.slice(0, 60)}
                   {post.content.length > 60 ? "..." : ""}
@@ -958,7 +923,7 @@ function PostsTab() {
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(post.id)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10 flex-shrink-0"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-red-50 flex-shrink-0"
                   style={{ color: "oklch(65% 0.2 25)" }}
                   data-ocid={`admin.posts.delete_button.${i + 1}`}
                 >
@@ -1002,7 +967,7 @@ export default function AdminPanel({ adminUsername }: Props) {
   return (
     <section
       className="min-h-screen py-8 px-4 sm:px-6"
-      style={{ background: "oklch(9% 0.01 240)" }}
+      style={{ background: "#f8f9fa" }}
       data-ocid="admin.panel"
     >
       <div className="max-w-4xl mx-auto">
@@ -1012,9 +977,9 @@ export default function AdminPanel({ adminUsername }: Props) {
           animate={{ opacity: 1, y: 0 }}
           className="relative rounded-3xl overflow-hidden mb-8 p-8"
           style={{
-            background:
-              "linear-gradient(135deg, oklch(15% 0.03 240), oklch(12% 0.02 240))",
-            border: "1px solid oklch(72% 0.18 75 / 0.2)",
+            background: "linear-gradient(135deg, #ffffff, #f9fafb)",
+            border: "1px solid oklch(72% 0.18 75 / 0.3)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
           }}
         >
           {/* Floating orbs */}
@@ -1051,9 +1016,9 @@ export default function AdminPanel({ adminUsername }: Props) {
               className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{
                 background:
-                  "linear-gradient(135deg, oklch(72% 0.18 75 / 0.2), oklch(62% 0.15 65 / 0.1))",
-                border: "1px solid oklch(72% 0.18 75 / 0.4)",
-                boxShadow: "0 0 32px oklch(72% 0.18 75 / 0.3)",
+                  "linear-gradient(135deg, oklch(96% 0.04 75), oklch(94% 0.05 65))",
+                border: "1.5px solid oklch(72% 0.18 75 / 0.5)",
+                boxShadow: "0 4px 16px oklch(72% 0.18 75 / 0.2)",
               }}
             >
               <Shield
@@ -1073,7 +1038,7 @@ export default function AdminPanel({ adminUsername }: Props) {
                 style={{ color: "oklch(55% 0.05 240)" }}
               >
                 Welcome,{" "}
-                <span style={{ color: "oklch(72% 0.18 75)" }}>
+                <span style={{ color: "oklch(50% 0.18 75)" }}>
                   @{adminUsername}
                 </span>{" "}
                 — Full access granted
@@ -1122,8 +1087,8 @@ export default function AdminPanel({ adminUsername }: Props) {
           transition={{ delay: 0.25 }}
           className="relative flex gap-1 p-1 rounded-2xl mb-6"
           style={{
-            background: "oklch(12% 0.015 240)",
-            border: "1px solid oklch(22% 0.02 240)",
+            background: "#f3f4f6",
+            border: "1px solid #e5e7eb",
           }}
         >
           {(["users", "posts"] as const).map((tab) => (
@@ -1133,7 +1098,7 @@ export default function AdminPanel({ adminUsername }: Props) {
               onClick={() => setActiveTab(tab)}
               className="relative flex-1 py-2.5 rounded-xl font-mono font-semibold text-sm transition-colors z-10"
               style={{
-                color: activeTab === tab ? "white" : "oklch(45% 0.03 240)",
+                color: activeTab === tab ? "#ffffff" : "#6b7280",
               }}
               data-ocid={`admin.${tab}.tab`}
             >
