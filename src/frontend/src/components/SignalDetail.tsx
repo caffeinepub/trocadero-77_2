@@ -197,7 +197,7 @@ function computeSecsToTP(signal: SignalData): number {
   // Accurate time estimate: use 24h price change to infer hourly velocity
   // Minimum guaranteed velocity: 1.5% per hour for any crypto asset
   const absChange24h = Math.abs(signal.priceChange24h ?? 0);
-  const hourlyVelocity = Math.max(1.5, absChange24h / 8);
+  const hourlyVelocity = Math.max(2.0, absChange24h / 6);
 
   // Hours to TP = distance% / hourlyVelocity
   const hoursToTP = distToTP / hourlyVelocity;

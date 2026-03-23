@@ -249,11 +249,12 @@ export default function FastTradingSection({
   const fastSignals = signals
     .filter(
       (s) =>
-        s.estimatedHours <= 18 &&
-        s.confidence >= 82 &&
-        s.tpProbability >= 65 &&
+        s.estimatedHours <= 12 &&
+        s.confidence >= 85 &&
+        s.tpProbability >= 72 &&
         s.direction === "long" &&
-        s.aiDumpRisk !== "HIGH",
+        s.aiDumpRisk !== "HIGH" &&
+        (s.priceChange24h === undefined || s.priceChange24h > -0.5),
     )
     .slice(0, 10);
 

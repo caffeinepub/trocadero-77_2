@@ -312,7 +312,7 @@ export function shouldShowSignal(
 
   // TP probability gate: 72% (was 78% -- lowered to allow more quality BUY signals)
   // The tight TP distance in signal generation ensures this is still high certainty
-  if (tpProbability < 72) {
+  if (tpProbability < 75) {
     return {
       allowed: false,
       reason: `TP probability too low (${tpProbability}%)`,
@@ -363,7 +363,7 @@ export function shouldShowSignal(
 
   // Adjust confidence
   let adjustedConfidence = baseConfidence;
-  adjustedConfidence += (tpProbability - 72) * 0.3;
+  adjustedConfidence += (tpProbability - 75) * 0.3;
   adjustedConfidence += newsSentiment * 5;
   adjustedConfidence = Math.max(
     0,

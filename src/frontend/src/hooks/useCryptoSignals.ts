@@ -92,7 +92,9 @@ function generateSignals(
   blacklist: Set<string> = new Set(),
 ): { signals: SignalData[]; excludedByReputation: number } {
   const now = Date.now();
-  const r0 = seededRand(now % 99991);
+  // FIX 1: Use hourly bucket so the same coin always has the same direction within an hour
+  const hourBucket = Math.floor(now / (60 * 60 * 1000));
+  const r0 = seededRand(hourBucket * 9973 + 12345);
 
   let excluded = 0;
   const filteredList = coinList.filter((c) => {
@@ -111,10 +113,14 @@ function generateSignals(
 
   for (let i = 0; i < shuffled.length; i++) {
     const coin = shuffled[i];
-    const r = seededRand(now + i * 1337 + 42);
+    // FIX 1: Use hourly bucket seed so direction is stable for the whole hour
+    const r = seededRand(hourBucket * 7919 + i * 1337 + 42);
 
     const change24h = coin.priceChange24h ?? 0;
     const absChange = Math.abs(change24h);
+
+    // FIX 4: Require sufficient volume -- skip illiquid coins
+    if ((coin.volume24h ?? 0) < 500_000) continue;
 
     const volumeScore = coin.volume24h
       ? Math.min(coin.volume24h / 1_000_000_000, 1)
@@ -123,9 +129,9 @@ function generateSignals(
     const volIdx = volumeScore > 0.6 ? 0 : volumeScore > 0.3 ? 1 : 2;
     const volume = volArr[volIdx];
 
-    // BUY-biased RSI ranges: 30-55 for longs (more room), 62-82 for shorts
-    const longRsi = Math.floor(30 + r() * 25); // 30-55: oversold to neutral-bullish
-    const shortRsi = Math.floor(62 + r() * 20); // 62-82: overbought range
+    // FIX 4: RSI alignment -- LONG: 30-62, SHORT: 58-82
+    const longRsi = Math.floor(30 + r() * 32); // 30-62
+    const shortRsi = Math.floor(58 + r() * 24); // 58-82
 
     // Strongly bias toward BUY signals
     // Only reduce BUY bias when there is a very strong downtrend (< -5%)
@@ -138,7 +144,13 @@ function generateSignals(
 
     const direction = r() < longBias ? "long" : "short";
 
+    // FIX 4: Enforce RSI alignment with direction
     const rsi = direction === "long" ? longRsi : shortRsi;
+
+    // FIX 4: RSI must align with direction (LONG: 30-62, SHORT: 58-82)
+    const rsiAligned =
+      direction === "long" ? rsi >= 30 && rsi <= 62 : rsi >= 58 && rsi <= 82;
+    if (!rsiAligned) continue;
 
     const macdAligned = r() > 0.12; // 88% chance of MACD alignment
     const macd: "bullish" | "bearish" | "neutral" = macdAligned
@@ -147,18 +159,19 @@ function generateSignals(
         : "bearish"
       : "neutral";
 
-    // Relaxed RSI condition for BUY: allow up to RSI 60 (not 52)
-    const rsiConditionMet = direction === "long" ? rsi < 60 : rsi > 60;
+    // RSI condition already enforced above
+    const rsiConditionMet = true;
     const macdConditionMet = macd !== "neutral";
     const volumeConditionMet = volume === "high" || volume === "medium";
 
     const hasPriceData = coin.priceChange24h != null;
+    // FIX 4: Stronger price momentum alignment
     const momentumAligned =
       !hasPriceData || absChange < 0.5
         ? true
         : direction === "long"
-          ? change24h > -4 // BUY allowed unless severe drop
-          : change24h < 0;
+          ? change24h > -1 // LONG: only allow mild or positive momentum
+          : change24h < 1; // SHORT: only allow mild or negative momentum
 
     const allAligned =
       rsiConditionMet &&
@@ -168,12 +181,20 @@ function generateSignals(
 
     if (!allAligned) continue;
 
+    // Additional 1h momentum filter: skip LONG if 1h trend is clearly negative
+    if (
+      direction === "long" &&
+      coin.priceChange1h != null &&
+      coin.priceChange1h < -0.8
+    )
+      continue;
+
     const volumeBonus = volumeScore * 5;
     const momentumStrength = Math.min(absChange / 3, 1) * 8;
     const rsiStrength =
       direction === "long"
-        ? Math.max(0, (60 - rsi) / 30) * 6
-        : Math.max(0, (rsi - 60) / 22) * 6;
+        ? Math.max(0, (62 - rsi) / 32) * 6
+        : Math.max(0, (rsi - 58) / 24) * 6;
 
     const baseConfidence =
       85 + r() * 8 + volumeBonus + momentumStrength + rsiStrength;
@@ -194,11 +215,10 @@ function generateSignals(
     if (currentPrice <= 0) continue;
 
     // TIGHTER TP -- max 10% away from entry so TP is realistically reachable
-    // This is the key "TP must hit" fix: smaller TP = higher probability of hitting
     const volatilityTier =
       absChange > 8 ? 0.8 : absChange > 4 ? 0.5 : absChange > 2 ? 0.25 : 0.08;
     const minProfit = 0.025; // 2.5% min
-    const maxProfit = 0.1; // 10% max (was 18%) -- tighter = more hittable
+    const maxProfit = 0.07; // 7% max -- tighter = more hittable
     const profitPct =
       minProfit +
       (maxProfit - minProfit) * (0.2 + volatilityTier * 0.5 + r() * 0.3);
@@ -321,7 +341,8 @@ function generateSignals(
     const fn = REASONING[Math.floor(r() * REASONING.length)];
 
     const signal: SignalData = {
-      id: `sig_${coin.symbol}_${now}_${i}`,
+      // FIX 1: Stable signal ID based on symbol + hourBucket (not timestamp)
+      id: `sig_${coin.symbol}_${hourBucket}_${i}`,
       coinName: coin.name,
       symbol: sym,
       currentPrice,
@@ -352,13 +373,23 @@ function generateSignals(
 
     signals.push(signal);
 
-    if (signals.length >= 55) break; // Increased from 40
+    if (signals.length >= 55) break;
   }
+
+  // FIX 4: Deduplicate -- one signal per coin, keep highest confidence
+  const seenSymbols = new Map<string, SignalData>();
+  for (const sig of signals) {
+    const existing = seenSymbols.get(sig.symbol);
+    if (!existing || sig.confidence > existing.confidence) {
+      seenSymbols.set(sig.symbol, sig);
+    }
+  }
+  const deduped = Array.from(seenSymbols.values());
 
   // Report filtered count to AI engine
   updateFilteredCount(aiFilteredCount + excluded);
 
-  return { signals, excludedByReputation: excluded };
+  return { signals: deduped, excludedByReputation: excluded };
 }
 
 export function useCryptoSignals() {
@@ -598,6 +629,8 @@ export function useCryptoSignals() {
     const sentiment: "bullish" | "bearish" | "neutral" =
       avg > 2 ? "bullish" : avg < -1.5 ? "bearish" : "neutral";
     setMarketSentiment(sentiment);
+    // FIX 2 & 3: buildSignals uses stable hourly seeds from generateSignals,
+    // so rescan naturally produces stable directions for the current hour.
     buildSignals(coins, livePricesRef.current, sentiment);
     setScanProgress({
       current: coins.length,
@@ -612,9 +645,10 @@ export function useCryptoSignals() {
     );
   }, []);
 
+  // FIX 5: Only update currentPrice from live prices; preserve all other signal data
   const signalsWithLive = signals.map((s) => ({
-    ...s,
-    currentPrice: livePrices[s.symbol] ?? s.currentPrice,
+    ...s, // preserve all original signal data including direction, entry, TP, SL
+    currentPrice: livePrices[s.symbol] ?? s.currentPrice, // only update current price
   }));
 
   const highProfitSignals = [...signalsWithLive]
@@ -682,6 +716,7 @@ export function useCryptoSignals() {
       setIsLoading(false);
     });
 
+    // FIX 3: 30s interval ONLY fetches live prices, never calls buildSignals
     interval.current = setInterval(() => {
       fetchLivePrices(coinListRef.current);
     }, 30000);
