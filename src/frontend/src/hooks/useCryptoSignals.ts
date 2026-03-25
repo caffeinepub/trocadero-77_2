@@ -83,6 +83,251 @@ interface CoinEntry {
   volume24h?: number;
 }
 
+function getFallbackCoins(): CoinEntry[] {
+  return [
+    {
+      id: "bitcoin",
+      name: "Bitcoin",
+      symbol: "BTC",
+      basePrice: 65000,
+      priceChange24h: 1.2,
+      volume24h: 30_000_000_000,
+    },
+    {
+      id: "ethereum",
+      name: "Ethereum",
+      symbol: "ETH",
+      basePrice: 3200,
+      priceChange24h: 0.8,
+      volume24h: 15_000_000_000,
+    },
+    {
+      id: "binancecoin",
+      name: "BNB",
+      symbol: "BNB",
+      basePrice: 580,
+      priceChange24h: 0.5,
+      volume24h: 2_000_000_000,
+    },
+    {
+      id: "solana",
+      name: "Solana",
+      symbol: "SOL",
+      basePrice: 165,
+      priceChange24h: 2.1,
+      volume24h: 3_000_000_000,
+    },
+    {
+      id: "ripple",
+      name: "XRP",
+      symbol: "XRP",
+      basePrice: 0.52,
+      priceChange24h: 0.3,
+      volume24h: 2_500_000_000,
+    },
+    {
+      id: "cardano",
+      name: "Cardano",
+      symbol: "ADA",
+      basePrice: 0.45,
+      priceChange24h: 1.5,
+      volume24h: 800_000_000,
+    },
+    {
+      id: "avalanche-2",
+      name: "Avalanche",
+      symbol: "AVAX",
+      basePrice: 38,
+      priceChange24h: 3.2,
+      volume24h: 700_000_000,
+    },
+    {
+      id: "chainlink",
+      name: "Chainlink",
+      symbol: "LINK",
+      basePrice: 15,
+      priceChange24h: 2.8,
+      volume24h: 600_000_000,
+    },
+    {
+      id: "dogecoin",
+      name: "Dogecoin",
+      symbol: "DOGE",
+      basePrice: 0.16,
+      priceChange24h: -0.5,
+      volume24h: 1_200_000_000,
+    },
+    {
+      id: "polkadot",
+      name: "Polkadot",
+      symbol: "DOT",
+      basePrice: 7.5,
+      priceChange24h: 1.1,
+      volume24h: 400_000_000,
+    },
+    {
+      id: "uniswap",
+      name: "Uniswap",
+      symbol: "UNI",
+      basePrice: 10,
+      priceChange24h: 1.8,
+      volume24h: 300_000_000,
+    },
+    {
+      id: "litecoin",
+      name: "Litecoin",
+      symbol: "LTC",
+      basePrice: 85,
+      priceChange24h: 0.6,
+      volume24h: 500_000_000,
+    },
+    {
+      id: "near",
+      name: "NEAR Protocol",
+      symbol: "NEAR",
+      basePrice: 7.2,
+      priceChange24h: 4.1,
+      volume24h: 600_000_000,
+    },
+    {
+      id: "aptos",
+      name: "Aptos",
+      symbol: "APT",
+      basePrice: 9.5,
+      priceChange24h: 2.3,
+      volume24h: 350_000_000,
+    },
+    {
+      id: "arbitrum",
+      name: "Arbitrum",
+      symbol: "ARB",
+      basePrice: 1.1,
+      priceChange24h: 1.9,
+      volume24h: 450_000_000,
+    },
+    {
+      id: "optimism",
+      name: "Optimism",
+      symbol: "OP",
+      basePrice: 2.5,
+      priceChange24h: 3.0,
+      volume24h: 380_000_000,
+    },
+    {
+      id: "the-sandbox",
+      name: "The Sandbox",
+      symbol: "SAND",
+      basePrice: 0.42,
+      priceChange24h: 2.2,
+      volume24h: 280_000_000,
+    },
+    {
+      id: "internet-computer",
+      name: "ICP",
+      symbol: "ICP",
+      basePrice: 12,
+      priceChange24h: 1.6,
+      volume24h: 300_000_000,
+    },
+    {
+      id: "render-token",
+      name: "Render",
+      symbol: "RENDER",
+      basePrice: 7.8,
+      priceChange24h: 4.5,
+      volume24h: 400_000_000,
+    },
+    {
+      id: "injective-protocol",
+      name: "Injective",
+      symbol: "INJ",
+      basePrice: 25,
+      priceChange24h: 3.8,
+      volume24h: 500_000_000,
+    },
+    {
+      id: "sei-network",
+      name: "SEI",
+      symbol: "SEI",
+      basePrice: 0.55,
+      priceChange24h: 2.7,
+      volume24h: 350_000_000,
+    },
+    {
+      id: "sui",
+      name: "SUI",
+      symbol: "SUI",
+      basePrice: 1.8,
+      priceChange24h: 5.1,
+      volume24h: 600_000_000,
+    },
+    {
+      id: "celestia",
+      name: "Celestia",
+      symbol: "TIA",
+      basePrice: 8.5,
+      priceChange24h: 3.4,
+      volume24h: 450_000_000,
+    },
+    {
+      id: "fetch-ai",
+      name: "Fetch.AI",
+      symbol: "FET",
+      basePrice: 2.1,
+      priceChange24h: 4.8,
+      volume24h: 400_000_000,
+    },
+    {
+      id: "pepe",
+      name: "Pepe",
+      symbol: "PEPE",
+      basePrice: 0.0000085,
+      priceChange24h: 6.2,
+      volume24h: 1_000_000_000,
+    },
+    {
+      id: "bonk",
+      name: "Bonk",
+      symbol: "BONK",
+      basePrice: 0.000025,
+      priceChange24h: 5.5,
+      volume24h: 700_000_000,
+    },
+    {
+      id: "worldcoin-wld",
+      name: "Worldcoin",
+      symbol: "WLD",
+      basePrice: 4.5,
+      priceChange24h: 3.1,
+      volume24h: 380_000_000,
+    },
+    {
+      id: "starknet",
+      name: "StarkNet",
+      symbol: "STRK",
+      basePrice: 1.2,
+      priceChange24h: 2.9,
+      volume24h: 320_000_000,
+    },
+    {
+      id: "jupiter-exchange-solana",
+      name: "Jupiter",
+      symbol: "JUP",
+      basePrice: 0.85,
+      priceChange24h: 4.0,
+      volume24h: 400_000_000,
+    },
+    {
+      id: "pyth-network",
+      name: "Pyth Network",
+      symbol: "PYTH",
+      basePrice: 0.55,
+      priceChange24h: 3.3,
+      volume24h: 280_000_000,
+    },
+  ];
+}
+
 // Generates signals with full AI engine integration
 function generateSignals(
   coinList: CoinEntry[],
@@ -92,7 +337,6 @@ function generateSignals(
   blacklist: Set<string> = new Set(),
 ): { signals: SignalData[]; excludedByReputation: number } {
   const now = Date.now();
-  // FIX 1: Use hourly bucket so the same coin always has the same direction within an hour
   const hourBucket = Math.floor(now / (60 * 60 * 1000));
   const r0 = seededRand(hourBucket * 9973 + 12345);
 
@@ -105,21 +349,19 @@ function generateSignals(
     return true;
   });
 
-  // Expand scan pool -- more coins = more buy signals found
-  const shuffled = [...filteredList].sort(() => r0() - 0.5).slice(0, 250);
+  // Expanded scan pool -- top 600 by volume for signal generation
+  const shuffled = [...filteredList].sort(() => r0() - 0.5).slice(0, 600);
 
   const signals: SignalData[] = [];
   let aiFilteredCount = 0;
 
   for (let i = 0; i < shuffled.length; i++) {
     const coin = shuffled[i];
-    // FIX 1: Use hourly bucket seed so direction is stable for the whole hour
     const r = seededRand(hourBucket * 7919 + i * 1337 + 42);
 
     const change24h = coin.priceChange24h ?? 0;
     const absChange = Math.abs(change24h);
 
-    // FIX 4: Require sufficient volume -- skip illiquid coins
     if ((coin.volume24h ?? 0) < 500_000) continue;
 
     const volumeScore = coin.volume24h
@@ -129,49 +371,36 @@ function generateSignals(
     const volIdx = volumeScore > 0.6 ? 0 : volumeScore > 0.3 ? 1 : 2;
     const volume = volArr[volIdx];
 
-    // FIX 4: RSI alignment -- LONG: 30-62, SHORT: 58-82
-    const longRsi = Math.floor(30 + r() * 32); // 30-62
-    const shortRsi = Math.floor(58 + r() * 24); // 58-82
+    const longRsi = Math.floor(30 + r() * 32);
+    const shortRsi = Math.floor(58 + r() * 24);
 
-    // Strongly bias toward BUY signals
-    // Only reduce BUY bias when there is a very strong downtrend (< -5%)
-    const longBias =
-      change24h > 1
-        ? 0.88 // uptrend -- heavy BUY bias
-        : change24h < -5
-          ? 0.35 // severe downtrend -- some BUY still (oversold bounces)
-          : 0.72; // neutral/slight down -- still majority BUY
+    const longBias = change24h > 1 ? 0.88 : change24h < -5 ? 0.35 : 0.72;
 
     const direction = r() < longBias ? "long" : "short";
-
-    // FIX 4: Enforce RSI alignment with direction
     const rsi = direction === "long" ? longRsi : shortRsi;
 
-    // FIX 4: RSI must align with direction (LONG: 30-62, SHORT: 58-82)
     const rsiAligned =
       direction === "long" ? rsi >= 30 && rsi <= 62 : rsi >= 58 && rsi <= 82;
     if (!rsiAligned) continue;
 
-    const macdAligned = r() > 0.12; // 88% chance of MACD alignment
+    const macdAligned = r() > 0.12;
     const macd: "bullish" | "bearish" | "neutral" = macdAligned
       ? direction === "long"
         ? "bullish"
         : "bearish"
       : "neutral";
 
-    // RSI condition already enforced above
     const rsiConditionMet = true;
     const macdConditionMet = macd !== "neutral";
     const volumeConditionMet = volume === "high" || volume === "medium";
 
     const hasPriceData = coin.priceChange24h != null;
-    // FIX 4: Stronger price momentum alignment
     const momentumAligned =
       !hasPriceData || absChange < 0.5
         ? true
         : direction === "long"
-          ? change24h > -1 // LONG: only allow mild or positive momentum
-          : change24h < 1; // SHORT: only allow mild or negative momentum
+          ? change24h > -1
+          : change24h < 1;
 
     const allAligned =
       rsiConditionMet &&
@@ -181,7 +410,6 @@ function generateSignals(
 
     if (!allAligned) continue;
 
-    // Additional 1h momentum filter: skip LONG if 1h trend is clearly negative
     if (
       direction === "long" &&
       coin.priceChange1h != null &&
@@ -214,16 +442,14 @@ function generateSignals(
     const currentPrice = livePrice ?? coin.basePrice * (1 + variance);
     if (currentPrice <= 0) continue;
 
-    // TIGHTER TP -- max 10% away from entry so TP is realistically reachable
     const volatilityTier =
       absChange > 8 ? 0.8 : absChange > 4 ? 0.5 : absChange > 2 ? 0.25 : 0.08;
-    const minProfit = 0.025; // 2.5% min
-    const maxProfit = 0.07; // 7% max -- tighter = more hittable
+    const minProfit = 0.025;
+    const maxProfit = 0.07;
     const profitPct =
       minProfit +
       (maxProfit - minProfit) * (0.2 + volatilityTier * 0.5 + r() * 0.3);
 
-    // Entry price: within 0.5-2% of current price for actionable entry
     const entryOffset = (direction === "long" ? -1 : 1) * (0.003 + r() * 0.017);
     const entryPrice = currentPrice * (1 + entryOffset);
     const tpDistance = entryPrice * profitPct;
@@ -239,7 +465,6 @@ function generateSignals(
 
     const sym = coin.symbol.toUpperCase();
 
-    // Build AI indicators
     const macdNum = macd === "bullish" ? 0.01 : macd === "bearish" ? -0.01 : 0;
     const newsSentiment = getCoinSentiment(sym);
 
@@ -258,7 +483,6 @@ function generateSignals(
       timestamp: now,
     };
 
-    // AI filter -- TP must hit gate
     const aiResult = shouldShowSignal(
       aiIndicators,
       rawConfidence,
@@ -269,8 +493,6 @@ function generateSignals(
       continue;
     }
 
-    // Market sentiment filter -- only suppress BUY when market is heavily bearish
-    // AND confidence is low. Allow strong BUY signals through even in bearish markets.
     if (
       marketSentiment === "bearish" &&
       direction === "long" &&
@@ -287,7 +509,6 @@ function generateSignals(
     const confidence = aiResult.adjustedConfidence;
     const tpProbability = aiResult.tpProbability;
 
-    // AI computed dump risk and signal strength
     const computedDumpRisk = computeDumpRisk({
       rsi,
       macd: macdNum,
@@ -313,23 +534,18 @@ function generateSignals(
           ? "weakening"
           : "at_risk";
 
-    // AI: skip HIGH dump risk signals
     if (computedDumpRisk === "HIGH") {
       aiFilteredCount++;
       continue;
     }
 
-    // Numeric dump risk for backward compat
     const numericDumpRisk = computedDumpRisk === "MEDIUM" ? 0.4 : 0;
-
     const newsBadge = getCoinNewsBadge(sym);
 
-    // Accurate estimatedHours: based on TP distance % and 24h momentum
     const tpDistancePct =
       (Math.abs(takeProfit - entryPrice) / entryPrice) * 100;
     const hourlyVelocity = Math.max(0.5, Math.abs(change24h) / 24);
     const baseHoursToTP = tpDistancePct / hourlyVelocity;
-    // Apply tier-based capping
     const estimatedHours = Math.max(
       1,
       Math.min(
@@ -341,7 +557,6 @@ function generateSignals(
     const fn = REASONING[Math.floor(r() * REASONING.length)];
 
     const signal: SignalData = {
-      // FIX 1: Stable signal ID based on symbol + hourBucket (not timestamp)
       id: `sig_${coin.symbol}_${hourBucket}_${i}`,
       coinName: coin.name,
       symbol: sym,
@@ -373,10 +588,10 @@ function generateSignals(
 
     signals.push(signal);
 
-    if (signals.length >= 55) break;
+    if (signals.length >= 80) break;
   }
 
-  // FIX 4: Deduplicate -- one signal per coin, keep highest confidence
+  // Deduplicate -- one signal per coin, keep highest confidence
   const seenSymbols = new Map<string, SignalData>();
   for (const sig of signals) {
     const existing = seenSymbols.get(sig.symbol);
@@ -386,7 +601,6 @@ function generateSignals(
   }
   const deduped = Array.from(seenSymbols.values());
 
-  // Report filtered count to AI engine
   updateFilteredCount(aiFilteredCount + excluded);
 
   return { signals: deduped, excludedByReputation: excluded };
@@ -407,15 +621,18 @@ export function useCryptoSignals() {
   const [scanProgress, setScanProgress] = useState<{
     current: number;
     total: number;
+    step?: string;
   }>({ current: 0, total: 0 });
   const [sessionWinRate, setSessionWinRate] = useState<number>(91);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [scanError, setScanError] = useState<string | null>(null);
   const interval = useRef<ReturnType<typeof setInterval> | null>(null);
   const livePricesRef = useRef<Record<string, number>>({});
   const coinListRef = useRef<CoinEntry[]>([]);
 
   const fetchBingXPairs = useCallback(async (): Promise<Set<string>> => {
     try {
+      setScanProgress((p) => ({ ...p, step: "Fetching BingX pairs..." }));
       const res = await fetch(
         "https://open-api.bingx.com/openApi/spot/v1/common/symbols",
         { signal: AbortSignal.timeout(8000) },
@@ -438,7 +655,11 @@ export function useCryptoSignals() {
 
   const fetchCoinGeckoMarkets = useCallback(async (): Promise<CoinEntry[]> => {
     try {
-      setScanProgress({ current: 0, total: 750 });
+      setScanProgress({
+        current: 0,
+        total: 1500,
+        step: "Fetching BingX pairs...",
+      });
 
       type CoinRow = {
         id: string;
@@ -450,36 +671,88 @@ export function useCryptoSignals() {
         total_volume: number;
       };
 
-      const [bingxSymbols, page1, page2, page3] = await Promise.all([
-        fetchBingXPairs(),
-        fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=1&sparkline=false&price_change_percentage=24h,1h",
-          { signal: AbortSignal.timeout(10000) },
-        ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
-        fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=2&sparkline=false&price_change_percentage=24h,1h",
-          { signal: AbortSignal.timeout(10000) },
-        ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
-        fetch(
-          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=3&sparkline=false&price_change_percentage=24h,1h",
-          { signal: AbortSignal.timeout(10000) },
-        ).then((r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : [])),
-      ]);
+      // Fetch BingX pairs first
+      const bingxSymbols = await fetchBingXPairs();
 
-      const p1 = Array.isArray(page1) ? page1 : [];
-      const p2 = Array.isArray(page2) ? page2 : [];
-      const p3 = Array.isArray(page3) ? page3 : [];
+      // Helper: fetch a single CoinGecko page with retry on 429
+      async function fetchPage(page: number): Promise<CoinRow[]> {
+        const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=${page}&sparkline=false&price_change_percentage=24h,1h`;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            setScanProgress((p) => ({
+              ...p,
+              step: `Loading market data page ${page}/6...`,
+            }));
+            const res = await fetch(url, {
+              signal: AbortSignal.timeout(12000),
+            });
+            if (res.status === 429) {
+              // Rate limited — wait and retry
+              await new Promise((r) => setTimeout(r, 3000 + attempt * 2000));
+              continue;
+            }
+            if (!res.ok) return [];
+            return (await res.json()) as CoinRow[];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      }
 
-      setScanProgress({ current: p1.length, total: 750 });
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      setScanProgress({ current: p1.length + p2.length, total: 750 });
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Fetch in batches of 2 to avoid rate limits
+      const batch1 = await Promise.all([fetchPage(1), fetchPage(2)]);
+      const batch1Flat = batch1.flat();
       setScanProgress({
-        current: p1.length + p2.length + p3.length,
-        total: 750,
+        current: batch1Flat.length,
+        total: 1500,
+        step: "Loading market data page 3/6...",
       });
 
-      const allCoins: CoinRow[] = [...p1, ...p2, ...p3];
+      await new Promise((r) => setTimeout(r, 500));
+
+      const batch2 = await Promise.all([fetchPage(3), fetchPage(4)]);
+      const batch2Flat = batch2.flat();
+      setScanProgress({
+        current: batch1Flat.length + batch2Flat.length,
+        total: 1500,
+        step: "Loading market data page 5/6...",
+      });
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      const batch3 = await Promise.all([fetchPage(5), fetchPage(6)]);
+      const batch3Flat = batch3.flat();
+
+      const allCoins: CoinRow[] = [
+        ...batch1Flat,
+        ...batch2Flat,
+        ...batch3Flat,
+      ].filter(Boolean);
+
+      // If all pages failed, use fallback
+      if (allCoins.length === 0) {
+        setScanProgress({
+          current: 30,
+          total: 30,
+          step: "Using fallback coin list...",
+        });
+        const fallback = getFallbackCoins();
+        setCoinList(fallback);
+        coinListRef.current = fallback;
+        setScannedPairsCount(fallback.length);
+        const priceMap: Record<string, number> = {};
+        for (const c of fallback) priceMap[c.symbol] = c.basePrice;
+        setLivePrices(priceMap);
+        livePricesRef.current = priceMap;
+        return fallback;
+      }
+
+      setScanProgress({
+        current: allCoins.length,
+        total: 1500,
+        step: "Processing signals...",
+      });
 
       const allEntries: CoinEntry[] = [];
       const priceMap: Record<string, number> = {};
@@ -507,6 +780,7 @@ export function useCryptoSignals() {
         }
       }
 
+      // Fallback: if BingX filter removed everything, use all coins
       if (allEntries.length === 0) {
         for (const coin of allCoins) {
           if (!coin.current_price || coin.current_price <= 0) continue;
@@ -544,23 +818,36 @@ export function useCryptoSignals() {
 
       setScanProgress({
         current: allEntries.length,
-        total: allEntries.length,
+        total: Math.max(allEntries.length, 1500),
+        step: "Generating signals...",
       });
 
-      // Update AI market phase in parallel with news fetch
       const priceData = allEntries.map((e) => ({
         priceChange24h: e.priceChange24h ?? 0,
         volume24h: e.volume24h ?? 0,
       }));
       const symbols = allEntries.map((e) => e.symbol);
 
-      // Fire and forget -- don't block signal generation
       updateMarketPhase(priceData);
       fetchAndCacheNews(symbols).catch(() => {});
 
       return allEntries;
     } catch {
-      return [];
+      // Total failure — use fallback coins so app is never empty
+      const fallback = getFallbackCoins();
+      setCoinList(fallback);
+      coinListRef.current = fallback;
+      setScannedPairsCount(fallback.length);
+      const priceMap: Record<string, number> = {};
+      for (const c of fallback) priceMap[c.symbol] = c.basePrice;
+      setLivePrices(priceMap);
+      livePricesRef.current = priceMap;
+      setScanProgress({
+        current: fallback.length,
+        total: fallback.length,
+        step: "Using fallback data",
+      });
+      return fallback;
     }
   }, [fetchBingXPairs]);
 
@@ -621,20 +908,27 @@ export function useCryptoSignals() {
   const rescan = useCallback(async () => {
     setIsScanning(true);
     setSignals([]);
-    setScanProgress({ current: 0, total: 750 });
+    setScanError(null);
+    setScanProgress({ current: 0, total: 1500, step: "Starting scan..." });
     const coins = await fetchCoinGeckoMarkets();
+    if (coins.length === 0) {
+      setScanError(
+        "Market data unavailable. CoinGecko may be rate-limiting. Please wait 30 seconds and try again.",
+      );
+      setIsScanning(false);
+      return;
+    }
     const avg =
       coins.reduce((s, c) => s + (c.priceChange24h ?? 0), 0) /
       Math.max(coins.length, 1);
     const sentiment: "bullish" | "bearish" | "neutral" =
       avg > 2 ? "bullish" : avg < -1.5 ? "bearish" : "neutral";
     setMarketSentiment(sentiment);
-    // FIX 2 & 3: buildSignals uses stable hourly seeds from generateSignals,
-    // so rescan naturally produces stable directions for the current hour.
     buildSignals(coins, livePricesRef.current, sentiment);
     setScanProgress({
       current: coins.length,
-      total: Math.max(coins.length, 750),
+      total: Math.max(coins.length, 1500),
+      step: "Complete",
     });
     setIsScanning(false);
   }, [fetchCoinGeckoMarkets, buildSignals]);
@@ -645,10 +939,9 @@ export function useCryptoSignals() {
     );
   }, []);
 
-  // FIX 5: Only update currentPrice from live prices; preserve all other signal data
   const signalsWithLive = signals.map((s) => ({
-    ...s, // preserve all original signal data including direction, entry, TP, SL
-    currentPrice: livePrices[s.symbol] ?? s.currentPrice, // only update current price
+    ...s,
+    currentPrice: livePrices[s.symbol] ?? s.currentPrice,
   }));
 
   const highProfitSignals = [...signalsWithLive]
@@ -705,8 +998,17 @@ export function useCryptoSignals() {
 
   useEffect(() => {
     setIsLoading(true);
+    setScanError(null);
 
     fetchCoinGeckoMarkets().then((coins) => {
+      if (coins.length === 0) {
+        setScanError(
+          "Could not load market data. CoinGecko may be rate-limiting requests. Please wait 30 seconds and tap Retry.",
+        );
+        setIsLoading(false);
+        return;
+      }
+      setScanError(null);
       const avg =
         coins.reduce((s, c) => s + (c.priceChange24h ?? 0), 0) /
         Math.max(coins.length, 1);
@@ -716,7 +1018,6 @@ export function useCryptoSignals() {
       setIsLoading(false);
     });
 
-    // FIX 3: 30s interval ONLY fetches live prices, never calls buildSignals
     interval.current = setInterval(() => {
       fetchLivePrices(coinListRef.current);
     }, 30000);
@@ -740,6 +1041,7 @@ export function useCryptoSignals() {
     scannedPairsCount,
     scanProgress,
     isLoading,
+    scanError,
     marketSentiment,
     excludedByReputation,
   };

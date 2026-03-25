@@ -37,6 +37,42 @@ export interface TradeOutcome {
   holdDurationMs: number;
 }
 
+export interface AILesson {
+  id: string;
+  timestamp: number;
+  symbol: string;
+  direction: "long" | "short";
+  result: "WIN" | "LOSS";
+  rsi: number;
+  macdState: string;
+  volumeLevel: string;
+  hourOfDay: number;
+  insight: string;
+  weightAdjustments: Record<string, number>;
+}
+
+export interface AIChangeLogEntry {
+  id: string;
+  timestamp: number;
+  type:
+    | "threshold_adjust"
+    | "coin_blacklist"
+    | "coin_boost"
+    | "lesson_applied"
+    | "circuit_breaker";
+  description: string;
+  before?: number | string;
+  after?: number | string;
+}
+
+export interface FeatureWeights {
+  rsiWeight: number;
+  macdWeight: number;
+  volumeWeight: number;
+  momentumWeight: number;
+  newsWeight: number;
+}
+
 export interface AIState {
   coinReputation: Record<
     string,
@@ -62,10 +98,25 @@ export interface AIState {
   marketPhaseConfidence: number;
   filteredCoins: number;
   lastUpdated: number;
+  featureWeights: FeatureWeights;
 }
 
 const STORAGE_KEY = "trocadero77_ai_state";
+const LESSONS_KEY = "t77_lessons";
+const CHANGELOG_KEY = "t77_changelog";
 const MAX_OUTCOMES = 500;
+const MAX_LESSONS = 200;
+const MAX_CHANGELOG = 200;
+
+function defaultFeatureWeights(): FeatureWeights {
+  return {
+    rsiWeight: 1.0,
+    macdWeight: 1.0,
+    volumeWeight: 1.0,
+    momentumWeight: 1.0,
+    newsWeight: 1.0,
+  };
+}
 
 function defaultState(): AIState {
   return {
@@ -90,6 +141,7 @@ function defaultState(): AIState {
     marketPhaseConfidence: 50,
     filteredCoins: 0,
     lastUpdated: Date.now(),
+    featureWeights: defaultFeatureWeights(),
   };
 }
 
@@ -98,7 +150,14 @@ function loadState(): AIState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw) as AIState;
-    return { ...defaultState(), ...parsed };
+    return {
+      ...defaultState(),
+      ...parsed,
+      featureWeights: {
+        ...defaultFeatureWeights(),
+        ...(parsed.featureWeights ?? {}),
+      },
+    };
   } catch {
     return defaultState();
   }
@@ -122,6 +181,171 @@ let _state: AIState | null = null;
 export function getAIState(): AIState {
   if (!_state) _state = loadState();
   return _state;
+}
+
+// ---------------------------------------------------------------
+// LESSONS SYSTEM
+// ---------------------------------------------------------------
+export function getLessons(): AILesson[] {
+  try {
+    const raw = localStorage.getItem(LESSONS_KEY);
+    if (!raw) return [];
+    return (JSON.parse(raw) as AILesson[]).slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+
+function saveLessons(lessons: AILesson[]): void {
+  try {
+    localStorage.setItem(
+      LESSONS_KEY,
+      JSON.stringify(lessons.slice(0, MAX_LESSONS)),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getChangeLog(): AIChangeLogEntry[] {
+  try {
+    const raw = localStorage.getItem(CHANGELOG_KEY);
+    if (!raw) return [];
+    return (JSON.parse(raw) as AIChangeLogEntry[]).slice(0, 100);
+  } catch {
+    return [];
+  }
+}
+
+function saveChangeLog(entries: AIChangeLogEntry[]): void {
+  try {
+    localStorage.setItem(
+      CHANGELOG_KEY,
+      JSON.stringify(entries.slice(0, MAX_CHANGELOG)),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function addToChangeLog(
+  type: AIChangeLogEntry["type"],
+  description: string,
+  before?: number | string,
+  after?: number | string,
+): void {
+  const entries = getChangeLog();
+  entries.unshift({
+    id: `cl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: Date.now(),
+    type,
+    description,
+    before,
+    after,
+  });
+  saveChangeLog(entries);
+}
+
+export function getFeatureWeights(): FeatureWeights {
+  return getAIState().featureWeights;
+}
+
+function writeLesson(outcome: TradeOutcome): void {
+  const state = getAIState();
+  const isWin = outcome.result === "WIN";
+  const fw = state.featureWeights;
+  const macdState = outcome.macdAtEntry > 0 ? "bullish" : "bearish";
+  const volumeLevel =
+    outcome.volumeAtEntry > 50_000_000
+      ? "high"
+      : outcome.volumeAtEntry > 5_000_000
+        ? "medium"
+        : "low";
+
+  // Build human-readable insight
+  let insight = "";
+  const adjustments: Record<string, number> = {};
+
+  if (isWin) {
+    if (
+      outcome.rsiAtEntry >= 35 &&
+      outcome.rsiAtEntry <= 55 &&
+      macdState === "bullish"
+    ) {
+      insight = `Strong oversold reversal pattern confirmed. RSI ${outcome.rsiAtEntry} in prime buy zone with MACD bullish alignment.`;
+      adjustments.rsiWeight = 0.02;
+      fw.rsiWeight = Math.min(2.0, fw.rsiWeight + 0.02);
+      adjustments.macdWeight = 0.02;
+      fw.macdWeight = Math.min(2.0, fw.macdWeight + 0.02);
+    } else if (volumeLevel === "high") {
+      insight = `High volume confirmation drove momentum. Volume gate effective at ${(outcome.volumeAtEntry / 1_000_000).toFixed(1)}M USD.`;
+      adjustments.volumeWeight = 0.02;
+      fw.volumeWeight = Math.min(2.0, fw.volumeWeight + 0.02);
+    } else if (outcome.priceChange24hAtEntry > 2) {
+      insight = `Positive momentum aligned — 24h change +${outcome.priceChange24hAtEntry.toFixed(1)}% supported entry. Momentum gate validated.`;
+      adjustments.momentumWeight = 0.02;
+      fw.momentumWeight = Math.min(2.0, fw.momentumWeight + 0.02);
+    } else {
+      insight = `Successful ${outcome.signalType} trade on ${outcome.symbol}. RSI ${outcome.rsiAtEntry}, MACD ${macdState}. Reinforcing pattern weights.`;
+    }
+  } else {
+    // Loss analysis
+    if (outcome.rsiAtEntry > 65) {
+      insight = `Overbought entry at RSI ${outcome.rsiAtEntry} led to reversal. Raising RSI sensitivity threshold.`;
+      adjustments.rsiWeight = -0.01;
+      fw.rsiWeight = Math.max(0.5, fw.rsiWeight - 0.01);
+      state.currentThreshold = Math.min(93, state.currentThreshold + 0.5);
+      addToChangeLog(
+        "threshold_adjust",
+        "RSI overbought loss detected. Raised confidence threshold.",
+        state.currentThreshold - 0.5,
+        state.currentThreshold,
+      );
+    } else if (macdState === "bearish" && outcome.signalType === "BUY") {
+      insight = `MACD bearish crossover at entry for ${outcome.symbol} BUY trade. Strengthening MACD gate.`;
+      adjustments.macdWeight = -0.01;
+      fw.macdWeight = Math.max(0.5, fw.macdWeight - 0.01);
+    } else if (volumeLevel === "low") {
+      insight = `Low volume (${(outcome.volumeAtEntry / 1_000_000).toFixed(1)}M) led to insufficient momentum. Tightening volume requirement.`;
+      adjustments.volumeWeight = 0.01;
+      fw.volumeWeight = Math.min(2.0, fw.volumeWeight + 0.01);
+    } else {
+      insight = `Loss on ${outcome.symbol} at RSI ${outcome.rsiAtEntry}. Analyzing pattern to prevent recurrence.`;
+    }
+  }
+
+  // Cap all weights
+  fw.rsiWeight = Math.max(0.5, Math.min(2.0, fw.rsiWeight));
+  fw.macdWeight = Math.max(0.5, Math.min(2.0, fw.macdWeight));
+  fw.volumeWeight = Math.max(0.5, Math.min(2.0, fw.volumeWeight));
+  fw.momentumWeight = Math.max(0.5, Math.min(2.0, fw.momentumWeight));
+  fw.newsWeight = Math.max(0.5, Math.min(2.0, fw.newsWeight));
+  state.featureWeights = fw;
+
+  const lesson: AILesson = {
+    id: `ls_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: Date.now(),
+    symbol: outcome.symbol,
+    direction: outcome.signalType === "BUY" ? "long" : "short",
+    result: outcome.result,
+    rsi: outcome.rsiAtEntry,
+    macdState,
+    volumeLevel,
+    hourOfDay: outcome.hourOfDay,
+    insight,
+    weightAdjustments: adjustments,
+  };
+
+  const lessons = getLessons();
+  lessons.unshift(lesson);
+  saveLessons(lessons);
+
+  addToChangeLog(
+    "lesson_applied",
+    `${outcome.result} lesson applied for ${outcome.symbol}: ${insight.slice(0, 80)}...`,
+  );
+
+  saveState(state);
 }
 
 // ---------------------------------------------------------------
@@ -156,87 +380,85 @@ export function updateMarketPhase(
 // ---------------------------------------------------------------
 // TP PROBABILITY SCORE
 // Tuned for BUY-biased, tight-TP, high-certainty signals
+// Now uses featureWeights for each component
 // ---------------------------------------------------------------
 export function computeTPProbability(
   ind: SignalIndicators,
   newsSentiment = 0,
 ): number {
   const state = getAIState();
+  const fw = state.featureWeights;
   let score = 50;
 
+  // RSI component (multiplied by rsiWeight)
+  let rsiComponent = 0;
   if (ind.signalType === "BUY") {
-    // Best RSI range for BUY: 35-60 (recovery/momentum zone)
-    if (ind.rsi >= 35 && ind.rsi <= 55)
-      score += 15; // Prime oversold-to-neutral zone
-    else if (ind.rsi >= 30 && ind.rsi < 35)
-      score += 10; // Oversold recovery
-    else if (ind.rsi > 55 && ind.rsi <= 65)
-      score += 7; // Moderate momentum
-    else if (ind.rsi > 65 && ind.rsi <= 72)
-      score += 2; // Getting stretched
-    else if (ind.rsi > 72)
-      score -= 12; // Overbought -- dump risk
-    else if (ind.rsi < 30) score -= 3; // Could still be falling
+    if (ind.rsi >= 35 && ind.rsi <= 55) rsiComponent = 15;
+    else if (ind.rsi >= 30 && ind.rsi < 35) rsiComponent = 10;
+    else if (ind.rsi > 55 && ind.rsi <= 65) rsiComponent = 7;
+    else if (ind.rsi > 65 && ind.rsi <= 72) rsiComponent = 2;
+    else if (ind.rsi > 72) rsiComponent = -12;
+    else if (ind.rsi < 30) rsiComponent = -3;
   } else {
-    if (ind.rsi > 65) score += 14;
-    else if (ind.rsi > 55) score += 7;
-    else if (ind.rsi < 45) score -= 12;
+    if (ind.rsi > 65) rsiComponent = 14;
+    else if (ind.rsi > 55) rsiComponent = 7;
+    else if (ind.rsi < 45) rsiComponent = -12;
   }
+  score += rsiComponent * fw.rsiWeight;
 
-  // MACD -- strong signal for direction
+  // MACD component (multiplied by macdWeight)
   const macdDiff = ind.macd - ind.macdSignal;
+  let macdComponent = 0;
   if (ind.signalType === "BUY") {
-    if (macdDiff > 0)
-      score += 12; // Bullish crossover confirmed
-    else score -= 6;
+    macdComponent = macdDiff > 0 ? 12 : -6;
   } else {
-    if (macdDiff < 0) score += 12;
-    else score -= 6;
+    macdComponent = macdDiff < 0 ? 12 : -6;
   }
+  score += macdComponent * fw.macdWeight;
 
-  // Volume -- conviction behind the move
-  if (ind.volume24h > 100_000_000)
-    score += 10; // Very high volume
-  else if (ind.volume24h > 50_000_000) score += 7;
-  else if (ind.volume24h > 10_000_000) score += 4;
-  else if (ind.volume24h < 1_000_000) score -= 10; // Low liquidity = unreliable
+  // Volume component (multiplied by volumeWeight)
+  let volumeComponent = 0;
+  if (ind.volume24h > 100_000_000) volumeComponent = 10;
+  else if (ind.volume24h > 50_000_000) volumeComponent = 7;
+  else if (ind.volume24h > 10_000_000) volumeComponent = 4;
+  else if (ind.volume24h < 1_000_000) volumeComponent = -10;
+  score += volumeComponent * fw.volumeWeight;
 
-  // Price momentum alignment
+  // Momentum component (multiplied by momentumWeight)
+  let momentumComponent = 0;
   if (ind.signalType === "BUY") {
     if (ind.priceChange24h >= 1 && ind.priceChange24h <= 8)
-      score += 8; // Healthy upward momentum
-    else if (ind.priceChange24h > 8)
-      score += 3; // Strong but may be exhausting
-    else if (ind.priceChange24h < -6)
-      score -= 10; // Heavy downtrend
-    else if (ind.priceChange24h < -2) score -= 4;
+      momentumComponent = 8;
+    else if (ind.priceChange24h > 8) momentumComponent = 3;
+    else if (ind.priceChange24h < -6) momentumComponent = -10;
+    else if (ind.priceChange24h < -2) momentumComponent = -4;
   } else {
-    if (ind.priceChange24h < -1) score += 8;
-    else if (ind.priceChange24h > 6) score -= 10;
+    if (ind.priceChange24h < -1) momentumComponent = 8;
+    else if (ind.priceChange24h > 6) momentumComponent = -10;
   }
+  score += momentumComponent * fw.momentumWeight;
+
+  // News component (multiplied by newsWeight)
+  score += newsSentiment * 8 * fw.newsWeight;
 
   // TP distance -- TIGHTER TP = MUCH higher hit probability
-  // This is the most important factor for "TP must hit"
   const tpDistance = Math.abs((ind.tp - ind.entryPrice) / ind.entryPrice) * 100;
-  if (tpDistance <= 2.5)
-    score += 18; // Very tight -- almost guaranteed
+  if (tpDistance <= 2.5) score += 18;
   else if (tpDistance <= 4) score += 14;
   else if (tpDistance <= 6) score += 8;
   else if (tpDistance <= 8) score += 3;
   else if (tpDistance <= 10) score -= 2;
-  else score -= 15; // Far TP -- low hit probability
+  else score -= 15;
 
   // Risk/reward ratio
   const slDistance = Math.abs((ind.sl - ind.entryPrice) / ind.entryPrice) * 100;
   const rrRatio = tpDistance / (slDistance || 1);
-  if (rrRatio >= 2 && rrRatio <= 3.5)
-    score += 6; // Sweet spot
+  if (rrRatio >= 2 && rrRatio <= 3.5) score += 6;
   else if (rrRatio > 3.5) score -= 2;
 
   // Market phase adjustment
   if (ind.signalType === "BUY" && state.marketPhase === "BULL") score += 10;
-  else if (ind.signalType === "BUY" && state.marketPhase === "BEAR")
-    score -= 8; // Reduced from -15: BUY can still work in bear (oversold bounces)
+  else if (ind.signalType === "BUY" && state.marketPhase === "BEAR") score -= 8;
   else if (ind.signalType === "SELL" && state.marketPhase === "BEAR")
     score += 10;
   else if (ind.signalType === "SELL" && state.marketPhase === "BULL")
@@ -259,9 +481,6 @@ export function computeTPProbability(
     const rsiWinRate = rsiStat.wins / rsiStat.total;
     score += (rsiWinRate - 0.5) * 20;
   }
-
-  // News sentiment
-  score += newsSentiment * 8;
 
   // Hourly pattern
   const hour = new Date(ind.timestamp).getHours();
@@ -310,8 +529,6 @@ export function shouldShowSignal(
 
   const tpProbability = computeTPProbability(ind, newsSentiment);
 
-  // TP probability gate: 72% (was 78% -- lowered to allow more quality BUY signals)
-  // The tight TP distance in signal generation ensures this is still high certainty
   if (tpProbability < 75) {
     return {
       allowed: false,
@@ -335,13 +552,12 @@ export function shouldShowSignal(
     }
   }
 
-  // Bear market gate: ONLY block BUY if confidence >= 80% AND market is strongly bearish
-  // This allows oversold BUY bounces through even in a bear market
+  // Bear market gate
   if (
     ind.signalType === "BUY" &&
     state.marketPhase === "BEAR" &&
-    state.marketPhaseConfidence > 85 && // Require very high bear confidence
-    tpProbability < 80 // Allow through if TP probability is strong enough
+    state.marketPhaseConfidence > 85 &&
+    tpProbability < 80
   ) {
     return {
       allowed: false,
@@ -370,7 +586,6 @@ export function shouldShowSignal(
     Math.min(99, Math.round(adjustedConfidence)),
   );
 
-  // Auto-adjusting threshold gate
   if (adjustedConfidence < state.currentThreshold) {
     return {
       allowed: false,
@@ -390,6 +605,9 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
   const state = getAIState();
   const isWin = outcome.result === "WIN";
 
+  // Write lesson first
+  writeLesson(outcome);
+
   // Update coin reputation
   const rep = state.coinReputation[outcome.symbol] || {
     wins: 0,
@@ -400,6 +618,18 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
   if (isWin) rep.wins++;
   else rep.lastLoss = Date.now();
   state.coinReputation[outcome.symbol] = rep;
+
+  if (!isWin && rep.total >= 5 && rep.wins / rep.total < 0.4) {
+    addToChangeLog(
+      "coin_blacklist",
+      `${outcome.symbol} flagged for poor win rate (${Math.round((rep.wins / rep.total) * 100)}%). Suppressing signals.`,
+    );
+  } else if (isWin && rep.total >= 5 && rep.wins / rep.total >= 0.8) {
+    addToChangeLog(
+      "coin_boost",
+      `${outcome.symbol} boosted — excellent win rate (${Math.round((rep.wins / rep.total) * 100)}%).`,
+    );
+  }
 
   // Update RSI pattern
   const rsiKey = getRSIRangeKey(outcome.rsiAtEntry);
@@ -462,6 +692,10 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
     if (state.consecutiveLosses >= 3) {
       state.circuitBreakerUntil = Date.now() + 10 * 60 * 1000;
       state.consecutiveLosses = 0;
+      addToChangeLog(
+        "circuit_breaker",
+        "Circuit breaker tripped after 3 consecutive losses. Signals paused for 10 minutes.",
+      );
     }
   }
 
@@ -471,7 +705,16 @@ export function recordTradeOutcome(outcome: TradeOutcome): void {
     state.recentOutcomes = state.recentOutcomes.slice(-MAX_OUTCOMES);
   }
 
+  const prevThreshold = state.currentThreshold;
   autoAdjustThreshold(state);
+  if (state.currentThreshold !== prevThreshold) {
+    addToChangeLog(
+      "threshold_adjust",
+      "Auto-adjusted confidence threshold based on recent performance.",
+      prevThreshold,
+      state.currentThreshold,
+    );
+  }
 
   state.totalLearned++;
   state.lastUpdated = Date.now();
@@ -490,6 +733,122 @@ function autoAdjustThreshold(state: AIState): void {
   } else if (winRate > 0.85 && state.currentThreshold > 83) {
     state.currentThreshold = Math.max(83, state.currentThreshold - 0.5);
   }
+}
+
+// ---------------------------------------------------------------
+// AI Q&A -- generate answer for a tracked trade question
+// ---------------------------------------------------------------
+export function generateTradeAnswer(
+  trade: {
+    symbol: string;
+    direction: "long" | "short";
+    entryPrice: number;
+    takeProfit: number;
+    stopLoss: number;
+    currentPrice: number;
+    trackedAt: number;
+    estimatedHours?: number;
+    rsi?: number;
+    macd?: string;
+    volume?: string;
+    confidence?: number;
+    tpProbability?: number;
+    profitPercent?: number;
+  },
+  question: string,
+): string {
+  const q = question.toLowerCase();
+  const isBuy = trade.direction === "long";
+  const tpRange = trade.takeProfit - trade.entryPrice;
+  const rawProgress = isBuy
+    ? ((trade.currentPrice - trade.entryPrice) / tpRange) * 100
+    : ((trade.entryPrice - trade.currentPrice) / Math.abs(tpRange)) * 100;
+  const progress = Math.max(0, Math.min(100, rawProgress));
+  const rsi = trade.rsi ?? 50;
+  const macdBullish = (trade.macd ?? "neutral") === "bullish";
+  const dumpRisk =
+    isBuy &&
+    (trade.currentPrice - trade.entryPrice) / trade.entryPrice < -0.015;
+  const nearTP = progress >= 70;
+  const confidence = trade.confidence ?? 85;
+  const tpProb = trade.tpProbability ?? 75;
+
+  // Check lessons for this symbol
+  const lessons = getLessons().filter((l) => l.symbol === trade.symbol);
+  const winLessons = lessons.filter((l) => l.result === "WIN").length;
+  const totalLessons = lessons.length;
+  const symbolHistory =
+    totalLessons > 0
+      ? ` ${trade.symbol} has ${winLessons}/${totalLessons} historical wins.`
+      : "";
+
+  const strengthLabel =
+    progress >= 70 ? "Strong" : progress >= 40 ? "Moderate" : "Early";
+  const estRemaining = trade.estimatedHours
+    ? Math.max(0.5, trade.estimatedHours * (1 - progress / 100))
+    : null;
+
+  const tpProbLabel = tpProb >= 80 ? "HIGH" : tpProb >= 65 ? "MEDIUM" : "LOW";
+
+  if (
+    q.includes("hit tp") ||
+    q.includes("will it hit") ||
+    q.includes("reach tp") ||
+    q.includes("hit target")
+  ) {
+    if (progress >= 95)
+      return `✅ Essentially at TP now — ${progress.toFixed(1)}% complete. Take profit immediately.`;
+    if (progress >= 70 && !dumpRisk)
+      return `🟢 HIGH probability of TP hit. ${progress.toFixed(1)}% complete with ${strengthLabel} momentum. TP probability: ${tpProb}% (${tpProbLabel}). ${estRemaining ? `Est. ${estRemaining.toFixed(1)}h remaining.` : ""}${symbolHistory}`;
+    if (dumpRisk)
+      return "🔴 WARNING: Price is below entry — dump risk active. TP hit unlikely without recovery. Consider safe exit.";
+    return `🟡 ${progress.toFixed(1)}% toward TP. TP probability: ${tpProb}% (${tpProbLabel}). RSI ${rsi}, MACD ${macdBullish ? "bullish" : "bearish"}. ${confidence >= 88 ? "Strong signal — hold position." : "Monitor closely."}${symbolHistory}`;
+  }
+
+  if (
+    q.includes("exit") ||
+    q.includes("close") ||
+    q.includes("should i sell")
+  ) {
+    if (dumpRisk) {
+      const safeExit = isBuy
+        ? trade.entryPrice * 0.988
+        : trade.entryPrice * 1.012;
+      return `⚠️ DUMP RISK DETECTED. Recommend exiting at Safe Exit $${safeExit.toFixed(4)} to protect capital. Price ${(((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100).toFixed(2)}% from entry.`;
+    }
+    if (nearTP)
+      return `✅ ${progress.toFixed(1)}% to TP — recommend holding. You're ${(100 - progress).toFixed(1)}% away from full profit. Only exit if momentum breaks.`;
+    return `📊 Current progress: ${progress.toFixed(1)}%. RSI ${rsi} — ${rsi > 70 ? "overbought, consider partial exit" : "still in healthy range, hold"}. TP probability: ${tpProb}%.`;
+  }
+
+  if (q.includes("safe") || q.includes("risk")) {
+    const riskLevel = dumpRisk ? "HIGH" : rsi > 70 ? "MEDIUM" : "LOW";
+    return `🔒 Risk Level: ${riskLevel}. RSI ${rsi} (${rsi > 70 ? "overbought" : rsi < 35 ? "oversold" : "neutral"}), MACD ${macdBullish ? "bullish ✓" : "bearish ✗"}, Progress ${progress.toFixed(1)}%. ${dumpRisk ? "Dump risk active — consider exit." : nearTP ? "Near TP — minimal risk." : "Trade within normal parameters."}${symbolHistory}`;
+  }
+
+  if (q.includes("time") || q.includes("how long") || q.includes("when")) {
+    if (estRemaining !== null) {
+      const h = Math.floor(estRemaining);
+      const m = Math.round((estRemaining - h) * 60);
+      return `⏱️ Estimated ${h}h ${m}m remaining based on current velocity (${progress.toFixed(1)}% complete). ${tpProbLabel} probability of TP hit. ${nearTP ? "Very close — could hit anytime." : ""}${symbolHistory}`;
+    }
+    return `⏱️ ${progress.toFixed(1)}% complete. Cannot estimate remaining time without entry data. Monitor price action closely.`;
+  }
+
+  if (q.includes("profit") || q.includes("how much") || q.includes("gain")) {
+    const profitPct =
+      trade.profitPercent ??
+      Math.abs(
+        ((trade.takeProfit - trade.entryPrice) / trade.entryPrice) * 100,
+      );
+    const currentGain = isBuy
+      ? ((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100
+      : ((trade.entryPrice - trade.currentPrice) / trade.entryPrice) * 100;
+    return `💰 Target profit: +${profitPct.toFixed(2)}% at TP. Current unrealized: ${currentGain >= 0 ? "+" : ""}${currentGain.toFixed(2)}%. At ${progress.toFixed(1)}% of the way. Entry $${trade.entryPrice.toFixed(4)} → TP $${trade.takeProfit.toFixed(4)}.`;
+  }
+
+  // Default: general analysis
+  return `📡 ${trade.symbol} trade analysis: ${progress.toFixed(1)}% toward TP, RSI ${rsi} (${rsi > 70 ? "overbought" : rsi < 35 ? "oversold" : "optimal"}), MACD ${macdBullish ? "bullish" : "bearish"}, confidence ${confidence}%. ${dumpRisk ? "⚠️ Dump risk active." : nearTP ? "✅ Near TP — strong position." : "Trade progressing normally."}${symbolHistory}`;
 }
 
 // ---------------------------------------------------------------
@@ -593,7 +952,7 @@ export function computeDumpRisk(
   if (ind.signalType === "BUY") {
     if (ind.rsi < 32) riskScore += 2;
     else if (ind.rsi < 38) riskScore += 1;
-    if (ind.rsi > 74) riskScore += 3; // Overbought
+    if (ind.rsi > 74) riskScore += 3;
 
     const macdDiff = ind.macd - ind.macdSignal;
     if (macdDiff < -0.001) riskScore += 2;

@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Brain,
+  CheckCircle,
   Edit2,
   Eye,
   EyeOff,
@@ -15,9 +16,12 @@ import {
   Shield,
   Trash2,
   Users,
+  XCircle,
+  Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getAIStats } from "../lib/aiEngine";
 import {
   type ManagedUser,
   createUser,
@@ -71,6 +75,29 @@ function getOrCreateUID(username: string): string {
     localStorage.setItem(key, uid);
   }
   return uid;
+}
+
+// ─── Circuit Breaker helpers ────────────────────────────────────────────────
+function resetCircuitBreaker() {
+  try {
+    const raw = localStorage.getItem("t77_ai_state");
+    if (raw) {
+      const state = JSON.parse(raw);
+      state.circuitBreakerUntil = 0;
+      localStorage.setItem("t77_ai_state", JSON.stringify(state));
+    }
+  } catch {}
+}
+
+function tripCircuitBreaker(minutes = 1) {
+  try {
+    const raw = localStorage.getItem("t77_ai_state");
+    if (raw) {
+      const state = JSON.parse(raw);
+      state.circuitBreakerUntil = Date.now() + minutes * 60 * 1000;
+      localStorage.setItem("t77_ai_state", JSON.stringify(state));
+    }
+  } catch {}
 }
 
 interface FormData {
@@ -158,6 +185,119 @@ function BentoCard({
   );
 }
 
+// ─── Breaker Controls Panel ─────────────────────────────────────────────────
+function BreakerControlPanel() {
+  const [stats, setStats] = useState(() => getAIStats());
+  const [lastAction, setLastAction] = useState("");
+
+  useEffect(() => {
+    const id = setInterval(() => setStats(getAIStats()), 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const tripped = stats.circuitActive;
+
+  const handleReset = () => {
+    resetCircuitBreaker();
+    setStats(getAIStats());
+    setLastAction("Circuit breaker reset — signals resuming.");
+    setTimeout(() => setLastAction(""), 4000);
+  };
+
+  const handleTrip = () => {
+    tripCircuitBreaker(1);
+    setStats(getAIStats());
+    setLastAction("Test trip activated — pauses signals for 1 minute.");
+    setTimeout(() => setLastAction(""), 4000);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl p-5 mb-6"
+      style={{
+        background: tripped
+          ? "oklch(60% 0.22 25 / 0.06)"
+          : "oklch(62% 0.18 145 / 0.05)",
+        border: `1px solid ${
+          tripped ? "oklch(60% 0.22 25 / 0.35)" : "oklch(62% 0.18 145 / 0.25)"
+        }`,
+      }}
+      data-ocid="admin.ai.panel"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: tripped
+                ? "oklch(60% 0.22 25 / 0.18)"
+                : "oklch(62% 0.18 145 / 0.15)",
+            }}
+          >
+            {tripped ? (
+              <XCircle
+                className="w-6 h-6"
+                style={{ color: "oklch(45% 0.18 25)" }}
+              />
+            ) : (
+              <CheckCircle
+                className="w-6 h-6"
+                style={{ color: "oklch(42% 0.18 145)" }}
+              />
+            )}
+          </div>
+          <div>
+            <div className="font-semibold text-sm">Circuit Breaker</div>
+            <div className="text-xs text-muted-foreground">
+              {tripped
+                ? `Tripped — signals paused (${stats.circuitMinLeft ?? 0}m remaining)`
+                : "Active — monitoring for consecutive losses"}
+            </div>
+            {lastAction && (
+              <div
+                className="text-xs mt-1 font-medium"
+                style={{
+                  color: tripped ? "oklch(45% 0.18 25)" : "oklch(42% 0.18 145)",
+                }}
+              >
+                {lastAction}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant={tripped ? "destructive" : "secondary"}>
+            {tripped ? "TRIPPED" : "NORMAL"}
+          </Badge>
+          {tripped ? (
+            <Button
+              size="sm"
+              onClick={handleReset}
+              className="gap-1.5"
+              style={{ background: "oklch(42% 0.18 145)", color: "white" }}
+              data-ocid="admin.ai.confirm_button"
+            >
+              <CheckCircle className="w-3.5 h-3.5" /> Reset Breaker
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleTrip}
+              className="gap-1.5 text-xs"
+              data-ocid="admin.ai.button"
+            >
+              <Zap className="w-3.5 h-3.5" /> Test Trip (1 min)
+            </Button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Users Tab ─────────────────────────────────────────────────────────────
 function UsersTab({
   adminUsername: _adminUsername,
@@ -201,7 +341,6 @@ function UsersTab({
           setFormError(result.error ?? "Create failed");
           return;
         }
-        // Ensure UID is generated
         getOrCreateUID(form.username);
       }
       setForm(EMPTY_FORM);
@@ -244,7 +383,7 @@ function UsersTab({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h3 className="font-display font-bold text-lg">
           Users ({users.length})
         </h3>
@@ -261,6 +400,10 @@ function UsersTab({
           <Plus className="w-4 h-4" /> Add User
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        Guest users (not logged in) receive 10 free credits. Activated users get
+        unlimited access for their subscription period.
+      </p>
 
       {/* Form */}
       <AnimatePresence>
@@ -355,7 +498,11 @@ function UsersTab({
                         form.duration === opt.value
                           ? "white"
                           : "oklch(var(--foreground))",
-                      border: `1px solid ${form.duration === opt.value ? "oklch(62% 0.18 145)" : "oklch(var(--border))"}`,
+                      border: `1px solid ${
+                        form.duration === opt.value
+                          ? "oklch(62% 0.18 145)"
+                          : "oklch(var(--border))"
+                      }`,
                     }}
                   >
                     {opt.label}
@@ -427,10 +574,16 @@ function UsersTab({
                 <div className="font-semibold text-sm text-foreground">
                   {u.username}
                 </div>
-                <div className="text-xs text-muted-foreground font-mono">
+                <div
+                  className="text-xs font-mono font-bold px-1.5 py-0.5 rounded inline-block mt-0.5"
+                  style={{
+                    background: "oklch(65% 0.12 220 / 0.12)",
+                    color: "oklch(40% 0.12 220)",
+                  }}
+                >
                   {uid}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   Expires: {fmtDate(u.expiresAt)}
                 </div>
               </div>
@@ -818,14 +971,17 @@ export default function AdminPanel({
   const [tab, setTab] = useState<AdminTab>("home");
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [aiStats, setAiStats] = useState(() => getAIStats());
 
   useEffect(() => {
     setUsers(getAllUsers());
     setPosts(getPosts());
+    setAiStats(getAIStats());
     const id = setInterval(() => {
       setUsers(getAllUsers());
       setPosts(getPosts());
-    }, 30000);
+      setAiStats(getAIStats());
+    }, 10000);
     return () => clearInterval(id);
   }, []);
 
@@ -833,6 +989,24 @@ export default function AdminPanel({
     if (u.expiresAt === 0) return true;
     return Date.now() <= u.expiresAt;
   }).length;
+
+  const expiredUsers = users.filter((u) => {
+    if (u.expiresAt === 0) return false;
+    return Date.now() > u.expiresAt;
+  }).length;
+
+  const permanentUsers = users.filter((u) => u.expiresAt === 0).length;
+
+  // Guest count: stored by AppShell on each guest page load
+  const guestCount = Number.parseInt(
+    localStorage.getItem("t77_guest_count") ?? "0",
+    10,
+  );
+
+  // Approximate logged-in: users minus expired, estimate sessions ~30%
+  const loggedInCount = Math.max(1, Math.floor(activeUsers * 0.4 + 1));
+
+  const isAutoLearning = !aiStats.circuitActive;
 
   const TAB_ITEMS: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: "home", label: "Dashboard", icon: "🏠" },
@@ -928,13 +1102,16 @@ export default function AdminPanel({
                 <h2 className="text-xl font-display font-bold mb-5">
                   Dashboard Overview
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+                {/* Primary bento grid — 2×3 on mobile, 3×2 on md */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                   <BentoCard
                     label="Total Users"
                     value={users.length}
                     icon={<Users className="w-4 h-4" />}
                     color="oklch(72% 0.18 75)"
                     onClick={() => setTab("users")}
+                    subtitle={`${permanentUsers} permanent · ${expiredUsers} expired`}
                   />
                   <BentoCard
                     label="Active Users"
@@ -942,6 +1119,21 @@ export default function AdminPanel({
                     icon={<span>✓</span>}
                     color="oklch(62% 0.18 145)"
                     onClick={() => setTab("users")}
+                    subtitle="Active subscriptions"
+                  />
+                  <BentoCard
+                    label="Logged In"
+                    value={loggedInCount}
+                    icon={<span>🟢</span>}
+                    color="oklch(60% 0.15 200)"
+                    subtitle="Estimated active sessions"
+                  />
+                  <BentoCard
+                    label="Guest Users"
+                    value={guestCount}
+                    icon={<span>👤</span>}
+                    color="oklch(65% 0.12 270)"
+                    subtitle="10 free credits each"
                   />
                   <BentoCard
                     label="Total Posts"
@@ -949,38 +1141,91 @@ export default function AdminPanel({
                     icon={<span>📝</span>}
                     color="oklch(65% 0.18 260)"
                     onClick={() => setTab("posts")}
+                    subtitle={`${posts.filter((p) => p.isPromotional).length} promotional`}
                   />
-                  <BentoCard
-                    label="Promo Posts"
-                    value={posts.filter((p) => p.isPromotional).length}
-                    icon={<span>🔥</span>}
-                    color="oklch(60% 0.18 25)"
-                    onClick={() => setTab("posts")}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BentoCard
                     label="AI Status"
-                    value="Auto-Learning"
+                    value={isAutoLearning ? "Learning" : "Paused"}
                     icon={<Brain className="w-4 h-4" />}
-                    color="oklch(65% 0.12 220)"
-                    subtitle="Neural engine active"
+                    color={
+                      isAutoLearning
+                        ? "oklch(42% 0.18 145)"
+                        : "oklch(45% 0.18 25)"
+                    }
+                    subtitle={
+                      isAutoLearning
+                        ? "Auto-learning active"
+                        : "Circuit breaker tripped"
+                    }
                     onClick={() => setTab("ai")}
                   />
-                  <BentoCard
-                    label="Logged In Now"
-                    value={Math.max(1, Math.floor(users.length * 0.3))}
-                    icon={<span>🟢</span>}
-                    color="oklch(62% 0.18 145)"
-                    subtitle="Approximate active sessions"
-                  />
                 </div>
+
+                {/* Subscription breakdown */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className="rounded-2xl p-5"
+                  style={{
+                    background: "oklch(var(--card))",
+                    border: "1px solid oklch(var(--border))",
+                  }}
+                >
+                  <h3 className="text-sm font-semibold mb-4">
+                    Subscription Breakdown
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      {
+                        label: "Active",
+                        value: activeUsers,
+                        color: "oklch(42% 0.18 145)",
+                      },
+                      {
+                        label: "Permanent",
+                        value: permanentUsers,
+                        color: "oklch(60% 0.15 200)",
+                      },
+                      {
+                        label: "Expired",
+                        value: expiredUsers,
+                        color: "oklch(45% 0.18 25)",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-xl p-3 text-center"
+                        style={{
+                          background: `${item.color}08`,
+                          border: `1px solid ${item.color}25`,
+                        }}
+                      >
+                        <div
+                          className="text-2xl font-bold font-display"
+                          style={{ color: item.color }}
+                        >
+                          {item.value}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {item.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
               </div>
             )}
 
             {tab === "users" && <UsersTab adminUsername={adminUsername} />}
             {tab === "posts" && <PostsTab />}
-            {tab === "ai" && <AIDashboardPage />}
+            {tab === "ai" && (
+              <div>
+                {/* Breaker controls at top of AI tab */}
+                <BreakerControlPanel />
+                <AIDashboardPage />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

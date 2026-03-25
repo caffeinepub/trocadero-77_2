@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { getAIState } from "../lib/aiEngine";
 
 interface Props {
   tickerData: { symbol: string; price: number; change: string }[];
@@ -45,11 +46,29 @@ export default function Navbar({
   onToggleDark,
 }: Props) {
   const [scrolled, setScrolled] = useState(false);
+  const [aiStatus, setAiStatus] = useState<{
+    circuitActive: boolean;
+    totalLearned: number;
+  }>({ circuitActive: false, totalLearned: 0 });
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", h);
     return () => window.removeEventListener("scroll", h);
+  }, []);
+
+  // Poll AI state every 5 seconds for the status dot
+  useEffect(() => {
+    const updateAI = () => {
+      const state = getAIState();
+      setAiStatus({
+        circuitActive: Date.now() < state.circuitBreakerUntil,
+        totalLearned: state.totalLearned,
+      });
+    };
+    updateAI();
+    const id = setInterval(updateAI, 5000);
+    return () => clearInterval(id);
   }, []);
 
   const links = [
@@ -80,6 +99,10 @@ export default function Navbar({
       : isScanning
         ? "Scanning..."
         : "Rescan Markets";
+
+  const aiDotColor = aiStatus.circuitActive
+    ? "oklch(60% 0.22 25)"
+    : "oklch(62% 0.18 145)";
 
   return (
     <header
@@ -150,7 +173,11 @@ export default function Navbar({
                       layoutId="nav-pill"
                       className="absolute inset-0 rounded-lg nav-active-shimmer"
                       style={{
-                        border: `1px solid ${isAdminTab ? "oklch(72% 0.18 75 / 0.5)" : "oklch(72% 0.18 75 / 0.2)"}`,
+                        border: `1px solid ${
+                          isAdminTab
+                            ? "oklch(72% 0.18 75 / 0.5)"
+                            : "oklch(72% 0.18 75 / 0.2)"
+                        }`,
                       }}
                       transition={{ type: "spring", duration: 0.4 }}
                     />
@@ -259,10 +286,47 @@ export default function Navbar({
               <div className="w-2 h-2 rounded-full bg-signal-buy animate-pulse" />
               <span className="text-xs font-mono text-signal-buy">LIVE</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-foreground/85">
+
+            {/* AI Status indicator with pulsing dot */}
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-foreground/85 relative"
+              title={
+                aiStatus.circuitActive
+                  ? "AI Circuit Breaker Active"
+                  : `AI Active — ${aiStatus.totalLearned} lessons learned`
+              }
+            >
               <Zap className="w-3 h-3" />
               AI Active
+              {/* Pulsing status dot */}
+              <span className="relative flex w-2 h-2">
+                <span
+                  className="absolute inline-flex h-full w-full rounded-full opacity-75"
+                  style={{
+                    background: aiDotColor,
+                    animation: "ping 1.5s cubic-bezier(0,0,0.2,1) infinite",
+                  }}
+                />
+                <span
+                  className="relative inline-flex rounded-full w-2 h-2"
+                  style={{ background: aiDotColor }}
+                />
+              </span>
+              {/* Learning badge */}
+              {aiStatus.totalLearned > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 text-[8px] font-bold px-1 rounded-full text-white"
+                  style={{
+                    background: aiDotColor,
+                    minWidth: 14,
+                    textAlign: "center",
+                  }}
+                >
+                  {aiStatus.totalLearned > 99 ? "99+" : aiStatus.totalLearned}
+                </span>
+              )}
             </div>
+
             <button
               type="button"
               onClick={onRescan}

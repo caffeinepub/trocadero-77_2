@@ -2,6 +2,8 @@ import {
   Activity,
   AlertTriangle,
   Brain,
+  MessageCircle,
+  Send,
   TrendingDown,
   TrendingUp,
   X,
@@ -14,7 +16,11 @@ import {
   recordOutcome,
 } from "../hooks/useLearningEngine";
 import type { TrackedTrade } from "../hooks/useTrackTrades";
-import { checkTrackedTradeOutcome, computeTrailingStop } from "../lib/aiEngine";
+import {
+  checkTrackedTradeOutcome,
+  computeTrailingStop,
+  generateTradeAnswer,
+} from "../lib/aiEngine";
 import SignalDetail from "./SignalDetail";
 
 function fmtPrice(p: number) {
@@ -99,7 +105,6 @@ function AIPredictionPanel({
   const macdBullish = (trade.macd ?? "neutral") === "bullish";
   const volumeGood = (trade.volume ?? "medium") === "high";
 
-  // AI prediction logic
   let score = 50;
   if (isBuy) {
     if (rsi > 45 && rsi < 70) score += 15;
@@ -114,9 +119,7 @@ function AIPredictionPanel({
     if (priceDiffFromEntry > 0) score += 10;
     if (progress > 50) score += 10;
   }
-  // penalty for adverse movement
   if (priceDiffFromEntry < -1.5) score -= 20;
-
   score = Math.max(10, Math.min(95, score + (trade.confidence ?? 85) - 75));
 
   const prediction: "Will Hit TP" | "At Risk" | "TP Unlikely" =
@@ -166,6 +169,238 @@ function AIPredictionPanel({
   );
 }
 
+// AI Q&A Panel for a specific tracked trade
+function AIQAPanel({
+  trade,
+  currentPrice,
+  estimatedHours,
+}: {
+  trade: TrackedTrade;
+  currentPrice: number;
+  estimatedHours?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isBuy = trade.direction === "long";
+  const tpRange = trade.takeProfit - trade.entryPrice;
+  const progress = isBuy
+    ? ((currentPrice - trade.entryPrice) / tpRange) * 100
+    : ((trade.entryPrice - currentPrice) / Math.abs(tpRange)) * 100;
+
+  const handleSend = () => {
+    if (!question.trim()) return;
+    setIsThinking(true);
+    setAnswer("");
+    // Small delay to feel like it's "thinking"
+    setTimeout(() => {
+      const resp = generateTradeAnswer(
+        {
+          symbol: trade.symbol,
+          direction: trade.direction,
+          entryPrice: trade.entryPrice,
+          takeProfit: trade.takeProfit,
+          stopLoss: trade.stopLoss,
+          currentPrice,
+          trackedAt: trade.trackedAt,
+          estimatedHours,
+          rsi: trade.rsi,
+          macd: trade.macd,
+          volume: trade.volume,
+          confidence: trade.confidence,
+          tpProbability: trade.tpProbability,
+          profitPercent: trade.profitPercent,
+        },
+        question,
+      );
+      setAnswer(resp);
+      setIsThinking(false);
+    }, 600);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSend();
+  };
+
+  const suggestions = [
+    "Will it hit TP?",
+    "Is it safe?",
+    "How long?",
+    "Should I exit?",
+  ];
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+          setTimeout(() => inputRef.current?.focus(), 100);
+        }}
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: open
+            ? "oklch(36% 0.14 240 / 0.15)"
+            : "oklch(36% 0.14 240 / 0.08)",
+          border: "1px solid oklch(36% 0.14 240 / 0.25)",
+          color: "oklch(55% 0.12 240)",
+        }}
+        data-ocid="tracking.open_modal_button"
+      >
+        <MessageCircle className="w-3 h-3" />
+        Ask AI
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <div
+              className="mt-2 rounded-xl p-3"
+              style={{
+                background: "oklch(36% 0.14 240 / 0.06)",
+                border: "1px solid oklch(36% 0.14 240 / 0.2)",
+              }}
+            >
+              {/* Quick suggestions */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setQuestion(s);
+                      setTimeout(() => {
+                        const resp = generateTradeAnswer(
+                          {
+                            symbol: trade.symbol,
+                            direction: trade.direction,
+                            entryPrice: trade.entryPrice,
+                            takeProfit: trade.takeProfit,
+                            stopLoss: trade.stopLoss,
+                            currentPrice,
+                            trackedAt: trade.trackedAt,
+                            estimatedHours,
+                            rsi: trade.rsi,
+                            macd: trade.macd,
+                            volume: trade.volume,
+                            confidence: trade.confidence,
+                            tpProbability: trade.tpProbability,
+                            profitPercent: trade.profitPercent,
+                          },
+                          s,
+                        );
+                        setAnswer(resp);
+                      }, 0);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-full transition-colors"
+                    style={{
+                      background: "oklch(36% 0.14 240 / 0.12)",
+                      border: "1px solid oklch(36% 0.14 240 / 0.25)",
+                      color: "oklch(55% 0.12 240)",
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              {/* Input row */}
+              <div className="flex gap-2 items-center">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask about this trade..."
+                  className="flex-1 text-xs px-3 py-2 rounded-lg bg-background border border-border outline-none focus:border-primary placeholder:text-muted-foreground"
+                  data-ocid="tracking.input"
+                />
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!question.trim() || isThinking}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
+                  style={{
+                    background: "oklch(36% 0.14 240 / 0.15)",
+                    border: "1px solid oklch(36% 0.14 240 / 0.3)",
+                  }}
+                  data-ocid="tracking.submit_button"
+                >
+                  <Send
+                    className="w-3.5 h-3.5"
+                    style={{ color: "oklch(55% 0.12 240)" }}
+                  />
+                </button>
+              </div>
+
+              {/* Response */}
+              <AnimatePresence>
+                {(isThinking || answer) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-2 rounded-lg p-2.5"
+                    style={{
+                      background: "oklch(36% 0.14 240 / 0.08)",
+                      border: "1px solid oklch(36% 0.14 240 / 0.15)",
+                    }}
+                  >
+                    {isThinking ? (
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          {[0, 1, 2].map((i) => (
+                            <span
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{
+                                background: "oklch(55% 0.12 240)",
+                                animation: `bounce 0.8s ease-in-out ${i * 0.15}s infinite`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          AI thinking...
+                        </span>
+                      </div>
+                    ) : (
+                      <p
+                        className="text-xs leading-relaxed"
+                        style={{ color: "oklch(30% 0.05 240)" }}
+                      >
+                        {answer}
+                      </p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Progress context */}
+              <div className="mt-2 text-[10px] text-muted-foreground text-right">
+                Progress: {Math.max(0, Math.min(100, progress)).toFixed(1)}% to
+                TP
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 type TradeWithOutcome = TrackedTrade & { hitOutcome?: boolean };
 
 interface TradeCardProps {
@@ -210,6 +445,11 @@ function TradeCard({
     currentPrice,
     trade.takeProfit,
   );
+
+  // Estimate remaining hours based on progress
+  const estHours = 12; // default
+  const remainingFraction = Math.max(0, 1 - clampedProgress / 100);
+  const estimatedHoursForQA = estHours * remainingFraction;
 
   return (
     <motion.div
@@ -420,6 +660,13 @@ function TradeCard({
 
         {/* AI Prediction */}
         <AIPredictionPanel trade={trade} currentPrice={currentPrice} />
+
+        {/* AI Q&A */}
+        <AIQAPanel
+          trade={trade}
+          currentPrice={currentPrice}
+          estimatedHours={estimatedHoursForQA}
+        />
 
         {/* Mark Hit/Missed buttons (only if TP hit) */}
         {hitTarget && (
