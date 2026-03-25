@@ -1,6 +1,7 @@
 export interface Post {
   id: string;
   title: string;
+  tagline?: string;
   content: string;
   imageUrl: string; // base64 data URL or empty string
   isPromotional: boolean;

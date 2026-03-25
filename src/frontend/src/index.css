@@ -40,6 +40,41 @@
     --sidebar-border: 88% 0.01 240;
     --sidebar-ring: 75% 0.15 60;
   }
+
+  .dark {
+    --background: 8% 0.012 240;
+    --foreground: 94% 0.005 240;
+    --card: 11% 0.015 240;
+    --card-foreground: 94% 0.005 240;
+    --popover: 11% 0.015 240;
+    --popover-foreground: 94% 0.005 240;
+    --primary: 75% 0.15 60;
+    --primary-foreground: 10% 0.01 240;
+    --secondary: 16% 0.018 240;
+    --secondary-foreground: 90% 0.005 240;
+    --muted: 16% 0.018 240;
+    --muted-foreground: 58% 0.01 240;
+    --accent: 75% 0.15 60;
+    --accent-foreground: 10% 0.01 240;
+    --destructive: 60% 0.22 25;
+    --destructive-foreground: 98% 0.005 240;
+    --border: 22% 0.02 240;
+    --input: 22% 0.02 240;
+    --ring: 75% 0.15 60;
+    --chart-1: 75% 0.15 60;
+    --chart-2: 62% 0.18 145;
+    --chart-3: 60% 0.18 25;
+    --chart-4: 65% 0.12 220;
+    --chart-5: 65% 0.15 300;
+    --sidebar: 10% 0.012 240;
+    --sidebar-foreground: 94% 0.005 240;
+    --sidebar-primary: 75% 0.15 60;
+    --sidebar-primary-foreground: 10% 0.01 240;
+    --sidebar-accent: 16% 0.018 240;
+    --sidebar-accent-foreground: 90% 0.005 240;
+    --sidebar-border: 22% 0.02 240;
+    --sidebar-ring: 75% 0.15 60;
+  }
 }
 
 @layer base {
@@ -144,6 +179,144 @@
     transform: translateY(0) scale(1);
   }
 }
+@keyframes card-3d-enter {
+  from {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(12deg) translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1000px) rotateX(0deg) translateY(0) scale(1);
+  }
+}
+@keyframes profit-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px oklch(52% 0.2 145 / 0.4), inset 0 1px 0
+      rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 36px oklch(52% 0.2 145 / 0.7), inset 0 1px 0
+      rgba(255, 255, 255, 0.3);
+  }
+}
+@keyframes promo-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+@keyframes promo-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px oklch(72% 0.18 75 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px oklch(72% 0.18 75 / 0.9);
+  }
+}
+@keyframes shimmer-slide {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes coin-float {
+  0%,
+  100% {
+    transform: translateY(0px) rotateY(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotateY(180deg);
+  }
+}
+@keyframes coin-float-2 {
+  0%,
+  100% {
+    transform: translateY(-8px) rotateY(60deg);
+  }
+  50% {
+    transform: translateY(8px) rotateY(240deg);
+  }
+}
+@keyframes coin-float-3 {
+  0%,
+  100% {
+    transform: translateY(4px) rotateY(120deg);
+  }
+  50% {
+    transform: translateY(-12px) rotateY(300deg);
+  }
+}
+@keyframes blink-light {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(2.5);
+  }
+}
+@keyframes mcb-flip {
+  0% {
+    transform: perspective(400px) rotateX(0deg);
+  }
+  50% {
+    transform: perspective(400px) rotateX(-90deg);
+  }
+  100% {
+    transform: perspective(400px) rotateX(0deg);
+  }
+}
+@keyframes screen-blink-green {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes screen-blink-red {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes nav-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
 
 .animate-ticker {
   animation: ticker-scroll 40s linear infinite;
@@ -157,8 +330,29 @@
 .animate-card-enter {
   animation: card-enter 0.5s ease forwards;
 }
+.animate-card-3d-enter {
+  animation: card-3d-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 .animate-spin-slow {
   animation: spin-slow 10s linear infinite;
+}
+.animate-coin-float {
+  animation: coin-float 6s ease-in-out infinite;
+}
+.animate-coin-float-2 {
+  animation: coin-float-2 7s ease-in-out infinite;
+}
+.animate-coin-float-3 {
+  animation: coin-float-3 5s ease-in-out infinite;
+}
+.animate-blink-light {
+  animation: blink-light 0.3s ease-in-out infinite;
+}
+.animate-mcb-flip {
+  animation: mcb-flip 0.4s ease-in-out;
+}
+.animate-drawer-in {
+  animation: drawer-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .gold-text {
@@ -172,6 +366,10 @@
 }
 .glass-card {
   background: oklch(97% 0.005 240 / 0.85);
+  backdrop-filter: blur(12px);
+}
+.dark .glass-card {
+  background: oklch(11% 0.015 240 / 0.9);
   backdrop-filter: blur(12px);
 }
 .gold-border-glow {
@@ -205,7 +403,6 @@
   font-family: "Playfair Display", serif;
   letter-spacing: -0.02em;
 }
-
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -214,14 +411,13 @@
   display: none;
 }
 
-@keyframes profit-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 20px oklch(52% 0.2 145 / 0.4), inset 0 1px 0
-      rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 36px oklch(52% 0.2 145 / 0.7), inset 0 1px 0
-      rgba(255, 255, 255, 0.3);
-  }
+.nav-active-shimmer {
+  background: linear-gradient(
+    90deg,
+    oklch(75% 0.15 60 / 0.05),
+    oklch(75% 0.15 60 / 0.18),
+    oklch(75% 0.15 60 / 0.05)
+  );
+  background-size: 200% auto;
+  animation: nav-shimmer 2s linear infinite;
 }

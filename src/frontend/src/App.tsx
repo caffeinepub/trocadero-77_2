@@ -1,16 +1,23 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import AIDashboardPage from "./components/AIDashboardPage";
 import AdminPanel from "./components/AdminPanel";
+import BullBearAnimation from "./components/BullBearAnimation";
+import ControlRoomPage from "./components/ControlRoomPage";
 import CreditGate from "./components/CreditGate";
 import EnterNowSection from "./components/EnterNowSection";
 import FastTradingSection from "./components/FastTradingSection";
 import FounderSection from "./components/FounderSection";
+import HamburgerDrawer from "./components/HamburgerDrawer";
 import HeroSection from "./components/HeroSection";
 import HighProfitSection from "./components/HighProfitSection";
 import LoginModal from "./components/LoginModal";
 import Navbar from "./components/Navbar";
+import NewsPage from "./components/NewsPage";
+import PostPage from "./components/PostPage";
 import PostsFeed from "./components/PostsFeed";
+import ProfilePage from "./components/ProfilePage";
 import SearchPage from "./components/SearchPage";
 import SignalCardSection from "./components/SignalCard";
 import SignalDetail from "./components/SignalDetail";
@@ -23,9 +30,13 @@ import {
   recordOutcome,
 } from "./hooks/useLearningEngine";
 import { useTrackTrades } from "./hooks/useTrackTrades";
+import { MCBProvider, useMCB } from "./lib/MCBContext";
 import { getCurrentUser, logout } from "./lib/authManager";
 
-export default function App() {
+const DARK_MODE_KEY = "t77_darkMode";
+const ANIMATION_KEY = "t77_animationShown";
+
+function AppInner() {
   const {
     signals,
     highProfitSignals,
@@ -43,15 +54,17 @@ export default function App() {
     marketSentiment,
     excludedByReputation,
   } = useCryptoSignals();
+
+  const { mcb } = useMCB();
+
   const [selectedSignal, setSelectedSignal] = useState<SignalData | null>(null);
   const [activeSection, setActiveSection] = useState("home");
-
   const [sessionStats, setSessionStats] = useState(() => getSessionStats());
   const [autoLearned, setAutoLearned] = useState(
     () => getAutoLearnStats().totalAutoLearned,
   );
 
-  // Auth state
+  // Auth
   const [currentUser, setCurrentUser] = useState<{
     username: string;
     isAdmin: boolean;
@@ -61,6 +74,34 @@ export default function App() {
     return { username: u.username, isAdmin: u.isAdmin };
   });
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem(DARK_MODE_KEY) === "true";
+  });
+
+  // Apply dark mode
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem(DARK_MODE_KEY, String(darkMode));
+  }, [darkMode]);
+
+  // Hamburger drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Bull/Bear animation
+  const [showAnimation, setShowAnimation] = useState(() => {
+    return !sessionStorage.getItem(ANIMATION_KEY);
+  });
+
+  const handleAnimationDone = useCallback(() => {
+    setShowAnimation(false);
+    sessionStorage.setItem(ANIMATION_KEY, "1");
+  }, []);
 
   const { trackedTrades, trackedIds, addTrade, removeTrade } = useTrackTrades(
     currentUser?.username,
@@ -120,6 +161,29 @@ export default function App() {
     toast.success("Logged out successfully");
   }, [scrollTo]);
 
+  // MCB-filtered signals
+  const filteredSignals = signals.filter((s) => {
+    if (!mcb.CONSECUTIVE_LOSSES) return false;
+    if (!mcb.SERVER) return false;
+    if (s.direction === "long" && !mcb.BULLISH) return false;
+    if (s.direction === "short" && !mcb.BEARISH) return false;
+    if (mcb.HIGH_CONFIDENCE && !mcb.LOW_CONFIDENCE && s.confidence < 90)
+      return false;
+    if (!mcb.HIGH_CONFIDENCE && mcb.LOW_CONFIDENCE && s.confidence >= 90)
+      return false;
+    return true;
+  });
+
+  const filteredHighProfit = highProfitSignals.filter((s) => {
+    if (!mcb.CONSECUTIVE_LOSSES) return false;
+    if (!mcb.SERVER) return false;
+    if (s.direction === "long" && !mcb.BULLISH) return false;
+    if (s.direction === "short" && !mcb.BEARISH) return false;
+    if (mcb.HIGH_CONFIDENCE && !mcb.LOW_CONFIDENCE && s.confidence < 90)
+      return false;
+    return true;
+  });
+
   const statsWithSession = {
     ...stats,
     sessionWins: sessionStats.wins,
@@ -151,7 +215,7 @@ export default function App() {
               onLogin={() => setShowLoginModal(true)}
             >
               <EnterNowSection
-                signals={signals}
+                signals={filteredSignals}
                 onSelectSignal={setSelectedSignal}
                 onTrack={addTrade}
                 trackedIds={trackedIds}
@@ -167,7 +231,7 @@ export default function App() {
               onLogin={() => setShowLoginModal(true)}
             >
               <FastTradingSection
-                signals={signals}
+                signals={filteredSignals}
                 onSelectSignal={setSelectedSignal}
                 onTrack={addTrade}
                 trackedIds={trackedIds}
@@ -183,7 +247,7 @@ export default function App() {
               onLogin={() => setShowLoginModal(true)}
             >
               <SignalCardSection
-                signals={signals}
+                signals={filteredSignals}
                 onSelectSignal={setSelectedSignal}
                 lastScanTime={lastScanTime}
                 onTrack={addTrade}
@@ -201,7 +265,7 @@ export default function App() {
               onLogin={() => setShowLoginModal(true)}
             >
               <HighProfitSection
-                signals={highProfitSignals}
+                signals={filteredHighProfit}
                 onSelectSignal={setSelectedSignal}
                 onTrack={addTrade}
                 trackedIds={trackedIds}
@@ -235,6 +299,21 @@ export default function App() {
             <FounderSection />
           </main>
         );
+      case "controlroom":
+        return <ControlRoomPage />;
+      case "profile":
+        return (
+          <ProfilePage
+            currentUser={currentUser}
+            onLogin={() => setShowLoginModal(true)}
+          />
+        );
+      case "postpage":
+        return <PostPage />;
+      case "newspage":
+        return <NewsPage />;
+      case "aidashboard":
+        return <AIDashboardPage />;
       case "adminpanel":
         if (!currentUser?.isAdmin) return null;
         return (
@@ -260,12 +339,28 @@ export default function App() {
     }
   };
 
-  const showFooter =
-    activeSection !== "tracking" && activeSection !== "adminpanel";
+  const showFooter = !["tracking", "adminpanel"].includes(activeSection);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Toaster position="bottom-right" />
+
+      {/* Bull/Bear opening animation */}
+      {showAnimation && marketSentiment !== "neutral" && (
+        <BullBearAnimation
+          sentiment={marketSentiment}
+          onDone={handleAnimationDone}
+        />
+      )}
+
+      {/* Hamburger Drawer */}
+      <HamburgerDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onNav={scrollTo}
+        currentUser={currentUser}
+      />
+
       <Navbar
         tickerData={tickerData}
         activeSection={activeSection}
@@ -278,6 +373,9 @@ export default function App() {
         onLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
         onOpenAdmin={() => scrollTo("adminpanel")}
+        onOpenDrawer={() => setDrawerOpen(true)}
+        darkMode={darkMode}
+        onToggleDark={() => setDarkMode((d) => !d)}
       />
 
       {renderContent()}
@@ -318,12 +416,19 @@ export default function App() {
         onMarkAccuracy={handleMarkAccuracy}
       />
 
-      {/* Login Modal */}
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onSuccess={handleLoginSuccess}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <MCBProvider>
+      <AppInner />
+    </MCBProvider>
   );
 }

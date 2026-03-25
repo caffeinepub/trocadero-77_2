@@ -1,4 +1,11 @@
-import { Activity, TrendingDown, TrendingUp, X } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Brain,
+  TrendingDown,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SignalData } from "../hooks/useCryptoSignals";
@@ -51,9 +58,7 @@ function tradeToSignal(
     confidence: trade.confidence ?? 88,
     estimatedHours: 12,
     direction: trade.direction,
-    reasoning: `${trade.coinName} was selected for tracking. Technical indicators showed a strong ${
-      isBuy ? "bullish" : "bearish"
-    } setup at entry. Monitor live price against your take profit and stop loss levels.`,
+    reasoning: `${trade.coinName} was selected for tracking. Technical indicators showed a strong ${isBuy ? "bullish" : "bearish"} setup at entry.`,
     profitPercent: trade.profitPercent,
     hitTarget,
     timestamp: trade.trackedAt,
@@ -72,424 +77,241 @@ function tradeToSignal(
   };
 }
 
-interface TradeCardProps {
+// AI TP Prediction panel
+function AIPredictionPanel({
+  trade,
+  currentPrice,
+}: {
   trade: TrackedTrade;
+  currentPrice: number;
+}) {
+  const isBuy = trade.direction === "long";
+  const tpRange = trade.takeProfit - trade.entryPrice;
+  const progress = isBuy
+    ? ((currentPrice - trade.entryPrice) / tpRange) * 100
+    : ((trade.entryPrice - currentPrice) / Math.abs(tpRange)) * 100;
+
+  const priceDiffFromEntry = isBuy
+    ? ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
+    : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
+
+  const rsi = trade.rsi ?? 50;
+  const macdBullish = (trade.macd ?? "neutral") === "bullish";
+  const volumeGood = (trade.volume ?? "medium") === "high";
+
+  // AI prediction logic
+  let score = 50;
+  if (isBuy) {
+    if (rsi > 45 && rsi < 70) score += 15;
+    if (macdBullish) score += 15;
+    if (volumeGood) score += 10;
+    if (priceDiffFromEntry > 0) score += 10;
+    if (progress > 50) score += 10;
+  } else {
+    if (rsi > 55) score += 15;
+    if (!macdBullish) score += 15;
+    if (volumeGood) score += 10;
+    if (priceDiffFromEntry > 0) score += 10;
+    if (progress > 50) score += 10;
+  }
+  // penalty for adverse movement
+  if (priceDiffFromEntry < -1.5) score -= 20;
+
+  score = Math.max(10, Math.min(95, score + (trade.confidence ?? 85) - 75));
+
+  const prediction: "Will Hit TP" | "At Risk" | "TP Unlikely" =
+    score >= 72 ? "Will Hit TP" : score >= 50 ? "At Risk" : "TP Unlikely";
+
+  const predColor =
+    prediction === "Will Hit TP"
+      ? "oklch(42% 0.18 145)"
+      : prediction === "At Risk"
+        ? "oklch(55% 0.18 60)"
+        : "oklch(45% 0.18 25)";
+
+  const reasoning =
+    prediction === "Will Hit TP"
+      ? `RSI ${rsi > 45 ? "holding above 45" : "recovering"}, ${macdBullish ? "MACD bullish alignment" : "momentum building"}, ${volumeGood ? "high volume support" : "volume moderate"}. Strong probability of TP hit.`
+      : prediction === "At Risk"
+        ? `RSI at ${rsi}, mixed momentum signals. Monitor closely. Consider partial exit if price weakens.`
+        : `Bearish divergence detected. RSI ${rsi < 40 ? "below 40" : "weakening"}, ${!macdBullish ? "MACD bearish crossover" : "momentum fading"}. Consider safe exit.`;
+
+  return (
+    <div
+      className="mt-3 rounded-xl p-3"
+      style={{
+        background: `${predColor}08`,
+        border: `1px solid ${predColor}30`,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <Brain className="w-3.5 h-3.5" style={{ color: predColor }} />
+        <span className="text-xs font-semibold" style={{ color: predColor }}>
+          AI Prediction
+        </span>
+        <span
+          className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+          style={{ background: `${predColor}20`, color: predColor }}
+        >
+          {prediction}
+        </span>
+        <span className="text-xs font-mono" style={{ color: predColor }}>
+          {score}%
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        {reasoning}
+      </p>
+    </div>
+  );
+}
+
+type TradeWithOutcome = TrackedTrade & { hitOutcome?: boolean };
+
+interface TradeCardProps {
+  trade: TradeWithOutcome;
   onStop: () => void;
   onViewDetails: () => void;
   livePrices: Record<string, number>;
   now: number;
-  hitStatus?: "hit" | "missed" | null;
-  onUpdateStatus?: (signalId: string, isHit: boolean) => void;
+  onMarkOutcome: (hit: boolean) => void;
 }
 
-function TradeTrackCard({
+function TradeCard({
   trade,
   onStop,
   onViewDetails,
   livePrices,
   now,
-  hitStatus,
-  onUpdateStatus,
+  onMarkOutcome,
 }: TradeCardProps) {
   const isBuy = trade.direction === "long";
   const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
-  const elapsed = now - trade.trackedAt;
-
   const tpRange = trade.takeProfit - trade.entryPrice;
   const rawProgress = isBuy
     ? ((currentPrice - trade.entryPrice) / tpRange) * 100
     : ((trade.entryPrice - currentPrice) / Math.abs(tpRange)) * 100;
-  const progress = Math.max(0, Math.min(100, rawProgress));
-  const isWaiting = rawProgress < 0;
-  const hitTP = progress >= 100;
+  const clampedProgress = Math.max(0, Math.min(100, rawProgress));
+  const hitTarget = rawProgress >= 100;
+  const elapsed = now - trade.trackedAt;
 
-  const isInProfit = isBuy
-    ? currentPrice >= trade.entryPrice
-    : currentPrice <= trade.entryPrice;
+  const slDistance = isBuy
+    ? ((currentPrice - trade.stopLoss) / currentPrice) * 100
+    : ((trade.stopLoss - currentPrice) / currentPrice) * 100;
+  const slDanger = slDistance < 1.5;
+  const dumpRisk =
+    isBuy && (currentPrice - trade.entryPrice) / trade.entryPrice < -0.015;
+  const nearTP = clampedProgress >= 70;
 
-  const slDistance = Math.abs(trade.entryPrice - trade.stopLoss);
-  const currentToSL = Math.abs(currentPrice - trade.stopLoss);
-  const slProximityPct =
-    slDistance > 0 ? (currentToSL / slDistance) * 100 : 100;
-  const slVeryClose = slProximityPct <= 10;
-  const slNear = !slVeryClose && slProximityPct <= 20;
-  const aiEarlyExitWarning = !slVeryClose && !slNear && slProximityPct <= 25;
-
-  const priceDiffPct =
-    ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
-
-  // AI: Dump risk detection
-  const priceDropPct =
-    trade.direction === "long"
-      ? ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
-      : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
-  const isDumpRisk = trade.direction === "long" && priceDropPct < -1.5;
-
-  // AI: Trailing safe exit
-  const trailingSafeExit =
-    trade.direction === "long" ? currentPrice * 0.97 : currentPrice * 1.03;
-
-  // AI: Compute trailing stop
   const trailingStop = computeTrailingStop(
-    trade.direction === "long" ? "BUY" : "SELL",
+    isBuy ? "BUY" : "SELL",
     trade.entryPrice,
     trade.stopLoss,
     currentPrice,
     trade.takeProfit,
   );
-  const hasTrailingStop =
-    trade.direction === "long"
-      ? trailingStop >
-        trade.stopLoss + (trade.entryPrice - trade.stopLoss) * 0.05
-      : trailingStop <
-        trade.stopLoss - (trade.stopLoss - trade.entryPrice) * 0.05;
-  const isTrailing =
-    trade.direction === "long" && currentPrice > trade.entryPrice;
-  const displaySafeExit = isTrailing ? trailingSafeExit : trade.safeExitPrice;
-
-  // AI: Auto TP alert
-  const tpProgress =
-    trade.direction === "long"
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            ((currentPrice - trade.entryPrice) /
-              (trade.takeProfit - trade.entryPrice)) *
-              100,
-          ),
-        )
-      : Math.min(
-          100,
-          Math.max(
-            0,
-            ((trade.entryPrice - currentPrice) /
-              (trade.entryPrice - trade.takeProfit)) *
-              100,
-          ),
-        );
-  const showTpAlert = tpProgress >= 70 && !hitTP;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96 }}
-      className="rounded-2xl overflow-hidden w-full cursor-pointer"
+      exit={{ opacity: 0, y: -20 }}
+      className="relative rounded-2xl overflow-hidden cursor-pointer animate-card-3d-enter"
       style={{
-        background: "#ffffff",
-        border: hitTP
-          ? "1.5px solid oklch(62% 0.18 145)"
-          : "1px solid rgba(0,0,0,0.14)",
-        boxShadow: hitTP
-          ? "0 8px 32px rgba(0,180,80,0.12)"
-          : "0 6px 20px rgba(0,0,0,0.08)",
+        background: "oklch(var(--card))",
+        border: hitTarget
+          ? "2px solid oklch(42% 0.18 145)"
+          : dumpRisk
+            ? "2px solid oklch(45% 0.18 25)"
+            : "1px solid oklch(var(--border))",
+        boxShadow: hitTarget
+          ? "0 0 24px oklch(62% 0.18 145 / 0.2)"
+          : "0 2px 12px rgba(0,0,0,0.06)",
       }}
       onClick={onViewDetails}
-      data-ocid="tracking.card"
+      data-ocid="tracking.item.1"
     >
-      {/* Top bar */}
-      <div
-        className="h-1.5"
-        style={{
-          background: isBuy
-            ? `linear-gradient(90deg, oklch(62% 0.18 145) ${progress}%, oklch(62% 0.18 145 / 0.2) ${progress}%)`
-            : `linear-gradient(90deg, oklch(60% 0.18 25) ${progress}%, oklch(60% 0.18 25 / 0.2) ${progress}%)`,
-        }}
-      />
-
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold font-display text-white flex-shrink-0"
-              style={{
-                background: isBuy
-                  ? "oklch(62% 0.18 145)"
-                  : "oklch(60% 0.18 25)",
-              }}
-            >
-              {trade.symbol.slice(0, 2)}
-            </div>
-            <div>
-              <div className="font-display font-bold text-base leading-tight text-foreground">
-                {trade.coinName}
-              </div>
-              <div className="text-xs font-mono text-foreground/60">
-                {trade.symbol}/USDT
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                isBuy
-                  ? "bg-signal-buy/15 text-signal-buy border border-signal-buy/25"
-                  : "bg-signal-sell/15 text-signal-sell border border-signal-sell/25"
-              }`}
-            >
-              {isBuy ? (
-                <TrendingUp className="w-3.5 h-3.5" />
-              ) : (
-                <TrendingDown className="w-3.5 h-3.5" />
-              )}
-              {isBuy ? "LONG" : "SHORT"}
+      {/* Profit banner */}
+      {hitTarget && (
+        <div
+          className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center py-4"
+          style={{
+            background: "oklch(42% 0.18 145 / 0.95)",
+            animation: "profit-pulse 1.5s ease-in-out infinite",
+          }}
+        >
+          <div className="text-center">
+            <div className="text-white font-bold text-xl">
+              🏆 PROFIT TAKEN +{trade.profitPercent.toFixed(1)}% Achieved!
             </div>
           </div>
         </div>
+      )}
 
-        {/* AI: Dump Risk Warning */}
-        {isDumpRisk && !hitTP && (
-          <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-300 animate-pulse">
-            <span className="text-red-600 font-bold text-xs">
-              ⚠ Dump Risk Detected — Consider Safe Exit at{" "}
-              {fmtPrice(displaySafeExit)}
-            </span>
-          </div>
-        )}
-
-        {/* AI: Auto Take Profit Alert */}
-        {showTpAlert && (
-          <div
-            className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl border animate-pulse"
-            style={{
-              background: "oklch(96% 0.04 145)",
-              borderColor: "oklch(70% 0.15 145)",
-            }}
+      {/* Take profit alert */}
+      {nearTP && !hitTarget && (
+        <div
+          className="absolute top-0 left-0 right-0 flex items-center justify-center gap-2 py-1.5 z-10"
+          style={{
+            background: "oklch(62% 0.18 145 / 0.15)",
+            borderBottom: "1px solid oklch(62% 0.18 145 / 0.3)",
+            animation: "profit-pulse 1.5s ease-in-out infinite",
+          }}
+        >
+          <span
+            className="text-xs font-bold"
+            style={{ color: "oklch(42% 0.18 145)" }}
           >
-            <span
-              className="font-bold text-xs"
-              style={{ color: "oklch(40% 0.18 145)" }}
-            >
-              💰 Take Profit Now ({Math.round(tpProgress)}%+ reached)
-            </span>
-          </div>
-        )}
+            ✨ Consider taking profit now!
+          </span>
+        </div>
+      )}
 
-        {/* TP Hit banner - Profit Taken with Hit/Missed buttons */}
-        {hitTP && (
-          <div className="mb-3">
-            {/* Profit Taken Banner */}
-            <div
-              className="rounded-2xl p-4 mb-2 text-center"
-              style={{
-                background:
-                  "linear-gradient(135deg, oklch(45% 0.2 145), oklch(55% 0.22 155))",
-                boxShadow:
-                  "0 0 20px oklch(52% 0.2 145 / 0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
-                animation: "profit-pulse 2s ease-in-out infinite",
-              }}
-            >
-              <div className="text-2xl mb-1">🎯</div>
-              <div className="font-display font-bold text-white text-xl tracking-tight">
-                PROFIT TAKEN
-              </div>
-              <div className="text-white/90 font-mono font-bold text-sm mt-1">
-                +{trade.profitPercent.toFixed(1)}% Achieved
-              </div>
-            </div>
+      {/* Dump risk banner */}
+      {dumpRisk && !hitTarget && (
+        <div
+          className="absolute top-0 left-0 right-0 flex items-center justify-center gap-2 py-1.5 z-10"
+          style={{
+            background: "oklch(60% 0.22 25 / 0.12)",
+            borderBottom: "1px solid oklch(60% 0.22 25 / 0.3)",
+          }}
+        >
+          <AlertTriangle
+            className="w-3.5 h-3.5"
+            style={{ color: "oklch(45% 0.18 25)" }}
+          />
+          <span
+            className="text-xs font-bold"
+            style={{ color: "oklch(45% 0.18 25)" }}
+          >
+            Dump Risk — Safe Exit: {fmtPrice(trailingStop)}
+          </span>
+        </div>
+      )}
 
-            {/* Hit / Missed buttons or status badge */}
-            {hitStatus === null || hitStatus === undefined ? (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus?.(trade.signalId, true);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{
-                    background: "oklch(62% 0.18 145)",
-                    color: "white",
-                    boxShadow: "0 4px 12px oklch(62% 0.18 145 / 0.4)",
-                  }}
-                  data-ocid="tracking.confirm_button"
-                >
-                  ✓ Mark as Hit
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateStatus?.(trade.signalId, false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{
-                    background: "oklch(58% 0.2 25)",
-                    color: "white",
-                    boxShadow: "0 4px 12px oklch(58% 0.2 25 / 0.4)",
-                  }}
-                  data-ocid="tracking.cancel_button"
-                >
-                  ✗ Mark as Missed
-                </button>
-              </div>
-            ) : hitStatus === "hit" ? (
-              <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-green-50 border border-green-200">
-                <span className="text-green-600 font-bold text-sm">
-                  ✅ Marked as Hit
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-red-50 border border-red-200">
-                <span className="text-red-600 font-bold text-sm">
-                  ❌ Marked as Missed
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SL warning hierarchy */}
-        {(slVeryClose || slNear || aiEarlyExitWarning) && !hitTP && (
-          <div className="mb-3 flex flex-col gap-1.5">
-            {slVeryClose && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-xs font-mono font-bold text-red-600">
-                ⚠ SL Very Close — Consider Exiting
-              </div>
-            )}
-            {slNear && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-mono font-bold text-amber-600">
-                SL Near — Watch Closely
-              </div>
-            )}
-            {aiEarlyExitWarning && (
-              <div
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold"
+      <div className={`p-4 ${nearTP || dumpRisk ? "pt-9" : ""}`}>
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display font-bold text-base text-foreground">
+                {trade.symbol.replace("USDT", "")}
+              </span>
+              <span
+                className="px-2 py-0.5 rounded-md text-xs font-bold"
                 style={{
-                  background: "oklch(96% 0.02 290)",
-                  border: "1px solid oklch(80% 0.08 290)",
-                  color: "oklch(40% 0.18 290)",
+                  background: isBuy
+                    ? "oklch(62% 0.18 145 / 0.15)"
+                    : "oklch(60% 0.22 25 / 0.15)",
+                  color: isBuy ? "oklch(42% 0.18 145)" : "oklch(45% 0.18 25)",
                 }}
               >
-                🤖 AI: Consider early exit to protect capital
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Current vs Entry */}
-        <div className="rounded-xl bg-muted/60 p-3 mb-3">
-          <div className="text-[10px] font-mono text-foreground/50 uppercase tracking-wider mb-2">
-            Price vs Entry
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-center">
-              <div
-                className={`text-base font-mono font-bold ${
-                  isInProfit ? "text-signal-buy" : "text-signal-sell"
-                }`}
-              >
-                {fmtPrice(currentPrice)}
-              </div>
-              <div className="text-[10px] text-foreground/50">Current</div>
+                {isBuy ? "LONG" : "SHORT"}
+              </span>
             </div>
-            <div className="flex flex-col items-center">
-              <div
-                className={`text-sm font-mono font-bold ${
-                  isInProfit ? "text-signal-buy" : "text-signal-sell"
-                }`}
-              >
-                {isInProfit ? "▲" : "▼"} {Math.abs(priceDiffPct).toFixed(2)}%
-              </div>
+            <div className="text-sm font-mono text-foreground/85 mt-0.5">
+              {fmtPrice(currentPrice)}
             </div>
-            <div className="text-center">
-              <div className="text-base font-mono font-bold text-foreground">
-                {fmtPrice(trade.entryPrice)}
-              </div>
-              <div className="text-[10px] text-foreground/50">Entry</div>
-            </div>
-          </div>
-        </div>
-
-        {/* TP Progress */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between text-[10px] font-mono text-foreground/55 mb-1.5">
-            <span>Progress to TP ({fmtPrice(trade.takeProfit)})</span>
-            <span
-              className={`font-bold ${
-                hitTP
-                  ? "text-signal-buy"
-                  : isWaiting
-                    ? "text-foreground/50"
-                    : "text-signal-buy"
-              }`}
-            >
-              {hitTP
-                ? "✓ DONE"
-                : isWaiting
-                  ? "Waiting for entry"
-                  : `${progress.toFixed(0)}%`}
-            </span>
-          </div>
-          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-signal-buy"
-              style={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-        </div>
-
-        {/* Key levels */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="rounded-lg bg-muted/40 px-3 py-2">
-            <div className="text-[10px] font-mono text-foreground/45 mb-0.5">
-              Stop Loss
-            </div>
-            <div className="text-sm font-mono font-bold text-signal-sell">
-              {fmtPrice(trade.stopLoss)}
-            </div>
-          </div>
-          <div className="rounded-lg bg-muted/40 px-3 py-2">
-            <div className="text-[10px] font-mono text-foreground/45 mb-0.5">
-              Safe Exit
-            </div>
-            <div className="text-sm font-mono font-bold text-foreground/80">
-              {fmtPrice(displaySafeExit)}
-              {isTrailing ? (
-                <span className="text-[9px] ml-0.5 opacity-60">
-                  {" "}
-                  (trailing)
-                </span>
-              ) : null}
-            </div>
-          </div>
-          {hasTrailingStop && (
-            <div
-              className="rounded-lg px-3 py-2"
-              style={{
-                background: "oklch(96% 0.04 145)",
-                border: "1px solid oklch(80% 0.12 145)",
-              }}
-            >
-              <div
-                className="text-[10px] font-mono mb-0.5"
-                style={{ color: "oklch(50% 0.12 145)" }}
-              >
-                🔒 Trailing SL
-              </div>
-              <div
-                className="text-sm font-mono font-bold"
-                style={{ color: "oklch(38% 0.18 145)" }}
-              >
-                {fmtPrice(trailingStop)}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-foreground/55">
-              ⏱ {formatElapsed(elapsed)}
-            </span>
-            <span className="text-xs font-mono font-bold text-foreground/70">
-              +{trade.profitPercent.toFixed(1)}% target
-            </span>
           </div>
           <button
             type="button"
@@ -497,13 +319,160 @@ function TradeTrackCard({
               e.stopPropagation();
               onStop();
             }}
-            data-ocid="tracking.stop_button"
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+            data-ocid="tracking.close_button"
           >
-            <X className="w-3 h-3" />
-            Stop
+            <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Progress bar */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Progress to TP</span>
+            <span
+              className="font-mono font-semibold"
+              style={{
+                color: isBuy ? "oklch(42% 0.18 145)" : "oklch(45% 0.18 25)",
+              }}
+            >
+              {clampedProgress.toFixed(1)}%
+            </span>
+          </div>
+          <div
+            className="h-2 rounded-full overflow-hidden"
+            style={{ background: "oklch(var(--muted))" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${clampedProgress}%`,
+                background: hitTarget
+                  ? "oklch(62% 0.18 145)"
+                  : clampedProgress >= 70
+                    ? "oklch(75% 0.15 60)"
+                    : isBuy
+                      ? "oklch(62% 0.18 145)"
+                      : "oklch(60% 0.22 25)",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div
+            className="text-center p-2 rounded-lg"
+            style={{ background: "oklch(var(--muted))" }}
+          >
+            <div className="text-xs text-muted-foreground">Entry</div>
+            <div className="text-xs font-mono font-semibold text-foreground">
+              {fmtPrice(trade.entryPrice)}
+            </div>
+          </div>
+          <div
+            className="text-center p-2 rounded-lg"
+            style={{ background: "oklch(var(--muted))" }}
+          >
+            <div className="text-xs text-muted-foreground">TP</div>
+            <div
+              className="text-xs font-mono font-semibold"
+              style={{ color: "oklch(42% 0.18 145)" }}
+            >
+              {fmtPrice(trade.takeProfit)}
+            </div>
+          </div>
+          <div
+            className="text-center p-2 rounded-lg"
+            style={{
+              background: slDanger
+                ? "oklch(60% 0.22 25 / 0.12)"
+                : "oklch(var(--muted))",
+            }}
+          >
+            <div className="text-xs text-muted-foreground">SL</div>
+            <div
+              className="text-xs font-mono font-semibold"
+              style={{ color: "oklch(45% 0.18 25)" }}
+            >
+              {fmtPrice(trade.stopLoss)}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            {isBuy ? (
+              <TrendingUp className="w-3 h-3 text-signal-buy" />
+            ) : (
+              <TrendingDown className="w-3 h-3 text-signal-sell" />
+            )}
+            <Activity className="w-3 h-3" />
+            <span>{formatElapsed(elapsed)}</span>
+          </div>
+          {trade.safeExitPrice > 0 && (
+            <span className="font-mono">
+              Safe exit: {fmtPrice(trailingStop)}
+            </span>
+          )}
+        </div>
+
+        {/* AI Prediction */}
+        <AIPredictionPanel trade={trade} currentPrice={currentPrice} />
+
+        {/* Mark Hit/Missed buttons (only if TP hit) */}
+        {hitTarget && (
+          <div
+            className="flex gap-2 mt-4 pt-3"
+            style={{ borderTop: "1px solid oklch(var(--border))" }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {trade.hitOutcome === undefined ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onMarkOutcome(true)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all"
+                  style={{
+                    background: "oklch(62% 0.18 145)",
+                    boxShadow: "0 2px 8px oklch(62% 0.18 145 / 0.3)",
+                  }}
+                  data-ocid="tracking.confirm_button"
+                >
+                  ✓ Mark as Hit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMarkOutcome(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all"
+                  style={{
+                    background: "oklch(60% 0.22 25)",
+                    boxShadow: "0 2px 8px oklch(60% 0.22 25 / 0.3)",
+                  }}
+                  data-ocid="tracking.cancel_button"
+                >
+                  ✗ Mark as Missed
+                </button>
+              </>
+            ) : (
+              <div
+                className="w-full py-2 rounded-xl text-xs font-bold text-center"
+                style={{
+                  background: trade.hitOutcome
+                    ? "oklch(62% 0.18 145 / 0.2)"
+                    : "oklch(60% 0.22 25 / 0.2)",
+                  color: trade.hitOutcome
+                    ? "oklch(42% 0.18 145)"
+                    : "oklch(45% 0.18 25)",
+                }}
+              >
+                {trade.hitOutcome ? "✓ Marked as Hit" : "✗ Marked as Missed"}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -511,9 +480,9 @@ function TradeTrackCard({
 
 interface Props {
   trackedTrades: TrackedTrade[];
-  onStopTracking: (signalId: string) => void;
+  onStopTracking: (id: string) => void;
   livePrices: Record<string, number>;
-  onAutoLearnUpdate?: () => void;
+  onAutoLearnUpdate: () => void;
 }
 
 export default function TrackingPage({
@@ -522,41 +491,27 @@ export default function TrackingPage({
   livePrices,
   onAutoLearnUpdate,
 }: Props) {
+  const [selectedSignal, setSelectedSignal] = useState<SignalData | null>(null);
   const [now, setNow] = useState(Date.now());
-  const [detailSignal, setDetailSignal] = useState<SignalData | null>(null);
-  const [hitStatusMap, setHitStatusMap] = useState<
-    Record<string, "hit" | "missed" | null>
+  const [tradeOutcomes, setTradeOutcomes] = useState<
+    Record<string, boolean | undefined>
   >({});
-  // Track which signalIds have already been auto-recorded to avoid duplicates
-  const autoRecordedRef = useRef<Set<string>>(new Set());
-
-  const handleUpdateStatus = useCallback(
-    (signalId: string, isHit: boolean) => {
-      setHitStatusMap((prev) => ({
-        ...prev,
-        [signalId]: isHit ? "hit" : "missed",
-      }));
-      const trade = trackedTrades.find((t) => t.signalId === signalId);
-      if (trade) {
-        recordOutcome(trade.symbol, isHit);
-        incrementAutoLearnCount();
-        onAutoLearnUpdate?.();
-      }
-    },
-    [trackedTrades, onAutoLearnUpdate],
-  );
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    intervalRef.current = setInterval(() => setNow(Date.now()), 30000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, []);
 
-  // Auto-outcome recording using AI engine checkTrackedTradeOutcome
+  // Auto-learn from TP/SL hits
   useEffect(() => {
     for (const trade of trackedTrades) {
-      if (autoRecordedRef.current.has(trade.signalId)) continue;
-      const currentPrice = livePrices[trade.symbol] ?? trade.entryPrice;
-      const result = checkTrackedTradeOutcome({
+      const currentPrice = livePrices[trade.symbol];
+      if (!currentPrice || tradeOutcomes[trade.signalId] !== undefined)
+        continue;
+      const outcome = checkTrackedTradeOutcome({
         symbol: trade.symbol,
         signalType: trade.direction === "long" ? "BUY" : "SELL",
         entryPrice: trade.entryPrice,
@@ -564,160 +519,94 @@ export default function TrackingPage({
         sl: trade.stopLoss,
         currentPrice,
         trackedAt: trade.trackedAt,
-        confidence: trade.confidence ?? 88,
+        confidence: trade.confidence,
+        tpProbability: trade.tpProbability,
       });
-      if (result) {
-        autoRecordedRef.current.add(trade.signalId);
-        recordOutcome(trade.symbol, result === "WIN");
+      if (outcome !== null) {
+        const hit = outcome === "WIN";
+        setTradeOutcomes((prev) => ({ ...prev, [trade.signalId]: hit }));
+        recordOutcome(trade.symbol, hit);
         incrementAutoLearnCount();
-        onAutoLearnUpdate?.();
+        onAutoLearnUpdate();
       }
     }
-  }, [trackedTrades, livePrices, onAutoLearnUpdate]);
+  }, [livePrices, trackedTrades, tradeOutcomes, onAutoLearnUpdate]);
 
-  const active = trackedTrades.filter((t) => {
-    const cp = livePrices[t.symbol] ?? t.entryPrice;
-    const tpRange = t.takeProfit - t.entryPrice;
-    const prog =
-      t.direction === "long"
-        ? ((cp - t.entryPrice) / tpRange) * 100
-        : ((t.entryPrice - cp) / Math.abs(tpRange)) * 100;
-    return prog < 100;
-  });
+  const handleMarkOutcome = useCallback(
+    (tradeId: string, hit: boolean) => {
+      setTradeOutcomes((prev) => ({ ...prev, [tradeId]: hit }));
+      recordOutcome(tradeId, hit);
+      incrementAutoLearnCount();
+      onAutoLearnUpdate();
+    },
+    [onAutoLearnUpdate],
+  );
 
-  const completed = trackedTrades.filter((t) => {
-    const cp = livePrices[t.symbol] ?? t.entryPrice;
-    const tpRange = t.takeProfit - t.entryPrice;
-    const prog =
-      t.direction === "long"
-        ? ((cp - t.entryPrice) / tpRange) * 100
-        : ((t.entryPrice - cp) / Math.abs(tpRange)) * 100;
-    return prog >= 100;
-  });
+  const tradesWithOutcomes: TradeWithOutcome[] = trackedTrades.map((t) => ({
+    ...t,
+    hitOutcome: tradeOutcomes[t.signalId],
+  }));
 
   return (
-    <div
-      className="min-h-screen pt-28 pb-20 px-4 sm:px-6 max-w-6xl mx-auto"
-      data-ocid="tracking.page"
-    >
-      {/* Page Header */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-gold" />
-          </div>
-          <h1 className="text-3xl font-display font-bold text-foreground">
-            Trade Tracker
-          </h1>
-          {trackedTrades.length > 0 && (
-            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-signal-buy/10 border border-signal-buy/30 text-signal-buy text-xs font-bold font-mono">
-              {trackedTrades.length} active
-            </span>
-          )}
+    <main className="min-h-screen py-20 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-display font-bold mb-2">Tracking</h1>
+          <p className="text-muted-foreground text-sm">
+            {trackedTrades.length > 0
+              ? `${trackedTrades.length} active trade${trackedTrades.length !== 1 ? "s" : ""} — updates every 30s`
+              : "No trades being tracked"}
+          </p>
         </div>
-        <p className="text-sm text-foreground/60 font-mono">
-          Manually track trades you&apos;ve entered. Live price updates every
-          second. Tap any card to open full trade details.
-        </p>
+
+        {trackedTrades.length === 0 ? (
+          <div
+            className="text-center py-16 rounded-2xl"
+            style={{
+              background: "oklch(var(--muted))",
+              border: "1px solid oklch(var(--border))",
+            }}
+            data-ocid="tracking.empty_state"
+          >
+            <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">No trades tracked yet.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Tap "Track Trade" on any signal to start monitoring.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5" data-ocid="tracking.list">
+            <AnimatePresence>
+              {tradesWithOutcomes.map((trade) => (
+                <TradeCard
+                  key={trade.signalId}
+                  trade={trade}
+                  onStop={() => onStopTracking(trade.signalId)}
+                  onViewDetails={() =>
+                    setSelectedSignal(tradeToSignal(trade, livePrices))
+                  }
+                  livePrices={livePrices}
+                  now={now}
+                  onMarkOutcome={(hit) =>
+                    handleMarkOutcome(trade.signalId, hit)
+                  }
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
-      {trackedTrades.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-32 rounded-2xl border border-dashed border-border"
-          style={{ background: "#ffffff" }}
-          data-ocid="tracking.empty_state"
-        >
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-4xl mb-5">
-            📊
-          </div>
-          <div className="font-display text-xl mb-2 text-foreground">
-            No trades being tracked
-          </div>
-          <div className="text-sm text-foreground/55 text-center max-w-xs">
-            Go to the Signals page, find a trade you like, and tap &ldquo;Track
-            Trade&rdquo; to add it here.
-          </div>
-        </motion.div>
-      ) : (
-        <div className="space-y-10">
-          {/* Active Trades */}
-          {active.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-5">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal-buy opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-signal-buy" />
-                </span>
-                <h2 className="text-lg font-display font-bold text-foreground">
-                  In Progress
-                </h2>
-                <span className="text-sm font-mono text-foreground/50">
-                  ({active.length})
-                </span>
-              </div>
-              <AnimatePresence>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {active.map((trade) => (
-                    <TradeTrackCard
-                      key={trade.signalId}
-                      trade={trade}
-                      onStop={() => onStopTracking(trade.signalId)}
-                      onViewDetails={() =>
-                        setDetailSignal(tradeToSignal(trade, livePrices))
-                      }
-                      livePrices={livePrices}
-                      now={now}
-                      hitStatus={hitStatusMap[trade.signalId] ?? null}
-                      onUpdateStatus={handleUpdateStatus}
-                    />
-                  ))}
-                </div>
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* Completed Trades */}
-          {completed.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-5">
-                <span className="text-signal-buy">🎯</span>
-                <h2 className="text-lg font-display font-bold text-foreground">
-                  Target Hit
-                </h2>
-                <span className="text-sm font-mono text-foreground/50">
-                  ({completed.length})
-                </span>
-              </div>
-              <AnimatePresence>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {completed.map((trade) => (
-                    <TradeTrackCard
-                      key={trade.signalId}
-                      trade={trade}
-                      onStop={() => onStopTracking(trade.signalId)}
-                      onViewDetails={() =>
-                        setDetailSignal(tradeToSignal(trade, livePrices))
-                      }
-                      livePrices={livePrices}
-                      now={now}
-                      hitStatus={hitStatusMap[trade.signalId] ?? null}
-                      onUpdateStatus={handleUpdateStatus}
-                    />
-                  ))}
-                </div>
-              </AnimatePresence>
-            </div>
-          )}
-        </div>
-      )}
-
       <SignalDetail
-        signal={detailSignal}
-        onClose={() => setDetailSignal(null)}
-        onMarkAccuracy={(_id, _hit) => setDetailSignal(null)}
+        signal={selectedSignal}
+        onClose={() => setSelectedSignal(null)}
+        onMarkAccuracy={(id, hit) => {
+          handleMarkOutcome(id, hit);
+          setSelectedSignal((prev) =>
+            prev?.id === id ? { ...prev, hitTarget: hit } : prev,
+          );
+        }}
       />
-    </div>
+    </main>
   );
 }
