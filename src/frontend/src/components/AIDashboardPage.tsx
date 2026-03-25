@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   Activity,
@@ -74,34 +73,12 @@ function fmtSince(ts: number) {
   return `${Math.floor(sec / 3600)}h ago`;
 }
 
-// ─── Circuit Breaker helpers ────────────────────────────────────────────────
-function resetCircuitBreaker() {
-  try {
-    const raw = localStorage.getItem("t77_ai_state");
-    if (raw) {
-      const state = JSON.parse(raw);
-      state.circuitBreakerUntil = 0;
-      localStorage.setItem("t77_ai_state", JSON.stringify(state));
-    }
-  } catch {}
-}
-
-function tripCircuitBreaker(minutes = 1) {
-  try {
-    const raw = localStorage.getItem("t77_ai_state");
-    if (raw) {
-      const state = JSON.parse(raw);
-      state.circuitBreakerUntil = Date.now() + minutes * 60 * 1000;
-      localStorage.setItem("t77_ai_state", JSON.stringify(state));
-    }
-  } catch {}
-}
-
 function WeightBar({
   label,
   value,
   icon,
 }: { label: string; value: number; icon: React.ReactNode }) {
+  // value is 0.5 to 2.0; normalize to 0-100 for display
   const pct = Math.round(((value - 0.5) / 1.5) * 100);
   const color =
     value > 1.3
@@ -145,9 +122,7 @@ function LessonCard({ lesson }: { lesson: AILesson }) {
         background: isWin
           ? "oklch(62% 0.18 145 / 0.05)"
           : "oklch(60% 0.22 25 / 0.05)",
-        border: `1px solid ${
-          isWin ? "oklch(62% 0.18 145 / 0.2)" : "oklch(60% 0.22 25 / 0.2)"
-        }`,
+        border: `1px solid ${isWin ? "oklch(62% 0.18 145 / 0.2)" : "oklch(60% 0.22 25 / 0.2)"}`,
       }}
     >
       <div className="flex items-center gap-2 mb-1.5">
@@ -203,38 +178,25 @@ export default function AIDashboardPage() {
   const [modelSize, setModelSize] = useState(48.0);
   const [lastSync, setLastSync] = useState(Date.now());
   const [isLearning, setIsLearning] = useState(true);
-  const [breakerMsg, setBreakerMsg] = useState("");
   const uptimeStart = useRef(Date.now());
-
-  const refreshStats = () => {
-    const newStats = getAIStats();
-    setAiStats(newStats);
-    setLearnStats(getAutoLearnStats());
-    setLogs(getLogs());
-    setFailures(getFailures());
-    setLessons(getLessons());
-    setChangeLog(getChangeLog());
-    setWeights(getFeatureWeights());
-    setLastSync(Date.now());
-    setIsLearning(true);
-  };
 
   useEffect(() => {
     const id = setInterval(() => {
       setUptime(Math.floor((Date.now() - uptimeStart.current) / 1000));
+      setLastSync(Date.now());
+      const newStats = getAIStats();
       const newLearn = getAutoLearnStats();
-      setAiStats(getAIStats());
+      setAiStats(newStats);
       setLearnStats(newLearn);
       setLogs(getLogs());
       setFailures(getFailures());
       setLessons(getLessons());
       setChangeLog(getChangeLog());
       setWeights(getFeatureWeights());
-      setLastSync(Date.now());
-      setIsLearning(true);
       setModelSize(
         (prev) => +(prev + 0.001 * newLearn.totalAutoLearned).toFixed(3),
       );
+      setIsLearning(true);
     }, 5000);
     return () => clearInterval(id);
   }, []);
@@ -271,20 +233,6 @@ export default function AIDashboardPage() {
   };
 
   const circuitBreakerTripped = aiStats.circuitActive;
-
-  const handleReset = () => {
-    resetCircuitBreaker();
-    setBreakerMsg("Circuit breaker reset — signal generation resumed.");
-    setTimeout(() => setBreakerMsg(""), 5000);
-    refreshStats();
-  };
-
-  const handleTrip = () => {
-    tripCircuitBreaker(1);
-    setBreakerMsg("Test trip activated — signals paused for 1 minute.");
-    setTimeout(() => setBreakerMsg(""), 5000);
-    refreshStats();
-  };
 
   return (
     <div className="min-h-screen py-20 px-4">
@@ -419,7 +367,7 @@ export default function AIDashboardPage() {
           </motion.div>
         </div>
 
-        {/* ═══ Circuit Breaker Status + Operate Controls ═══ */}
+        {/* Circuit Breaker */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -435,12 +383,11 @@ export default function AIDashboardPage() {
                 : "oklch(var(--border))"
             }`,
           }}
-          data-ocid="aidashboard.panel"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-3 flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{
                   background: circuitBreakerTripped
                     ? "oklch(60% 0.22 25 / 0.2)"
@@ -463,70 +410,17 @@ export default function AIDashboardPage() {
                 <div className="font-semibold text-sm">Circuit Breaker</div>
                 <div className="text-xs text-muted-foreground">
                   {circuitBreakerTripped
-                    ? `Tripped — signal generation paused${
-                        aiStats.circuitMinLeft
-                          ? ` (${aiStats.circuitMinLeft}m remaining)`
-                          : ""
-                      }`
-                    : "Active — monitoring for consecutive losses"}
+                    ? "Tripped – signal generation paused"
+                    : "Active – monitoring losses"}
                 </div>
-                {breakerMsg && (
-                  <div
-                    className="text-xs mt-1 font-medium"
-                    style={{
-                      color: circuitBreakerTripped
-                        ? "oklch(45% 0.18 25)"
-                        : "oklch(42% 0.18 145)",
-                    }}
-                  >
-                    {breakerMsg}
-                  </div>
-                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge
-                variant={circuitBreakerTripped ? "destructive" : "secondary"}
-              >
-                {circuitBreakerTripped ? "TRIPPED" : "NORMAL"}
-              </Badge>
-              {circuitBreakerTripped ? (
-                <Button
-                  size="sm"
-                  onClick={handleReset}
-                  className="gap-1.5"
-                  style={{ background: "oklch(42% 0.18 145)", color: "white" }}
-                  data-ocid="aidashboard.confirm_button"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" /> Reset Breaker
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTrip}
-                  className="gap-1.5 text-xs"
-                  data-ocid="aidashboard.button"
-                >
-                  <Zap className="w-3.5 h-3.5" /> Test Trip (1 min)
-                </Button>
-              )}
-            </div>
+            <Badge
+              variant={circuitBreakerTripped ? "destructive" : "secondary"}
+            >
+              {circuitBreakerTripped ? "TRIPPED" : "NORMAL"}
+            </Badge>
           </div>
-
-          {/* Progress bar showing time remaining if tripped */}
-          {circuitBreakerTripped && aiStats.circuitMinLeft !== undefined && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Cooldown remaining</span>
-                <span>{aiStats.circuitMinLeft}m</span>
-              </div>
-              <Progress
-                value={Math.max(0, 100 - (aiStats.circuitMinLeft / 10) * 100)}
-                className="h-1.5"
-              />
-            </div>
-          )}
         </motion.div>
 
         {/* Stats grid */}
@@ -576,7 +470,7 @@ export default function AIDashboardPage() {
           ))}
         </div>
 
-        {/* Feature Weights Panel */}
+        {/* ═══ NEW: Feature Weights Panel ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -629,7 +523,7 @@ export default function AIDashboardPage() {
           </p>
         </motion.div>
 
-        {/* Lessons Panel */}
+        {/* ═══ NEW: Lessons Panel ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -670,7 +564,7 @@ export default function AIDashboardPage() {
           )}
         </motion.div>
 
-        {/* Change Log */}
+        {/* ═══ NEW: Change Log ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -739,7 +633,7 @@ export default function AIDashboardPage() {
           )}
         </motion.div>
 
-        {/* Logs */}
+        {/* Existing Logs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Learning History */}
           <div

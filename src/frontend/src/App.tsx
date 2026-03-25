@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import AIDashboardPage from "./components/AIDashboardPage";
 import AdminPanel from "./components/AdminPanel";
@@ -36,84 +36,6 @@ import { getCurrentUser, logout } from "./lib/authManager";
 const DARK_MODE_KEY = "t77_darkMode";
 const ANIMATION_KEY = "t77_animationShown";
 
-function ScanLoadingScreen({
-  scanProgress,
-}: {
-  scanProgress: { current: number; total: number; step?: string };
-}) {
-  const pct =
-    scanProgress.total > 0
-      ? Math.min(
-          100,
-          Math.round((scanProgress.current / scanProgress.total) * 100),
-        )
-      : 0;
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-6 px-8 max-w-sm w-full">
-        {/* Animated logo */}
-        <div className="text-3xl font-bold tracking-widest text-foreground/90 animate-pulse">
-          TROCADERO 77
-        </div>
-        <div className="text-sm text-foreground/50 font-mono">
-          AI Signal Engine Initializing
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full bg-border rounded-full h-2 overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-
-        <div className="flex justify-between w-full text-xs text-foreground/40 font-mono">
-          <span>{scanProgress.step ?? "Scanning markets..."}</span>
-          <span>{pct}%</span>
-        </div>
-
-        {scanProgress.current > 0 && (
-          <div className="text-xs text-foreground/30 font-mono">
-            {scanProgress.current.toLocaleString()} /{" "}
-            {scanProgress.total.toLocaleString()} pairs
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ScanErrorScreen({
-  error,
-  onRetry,
-}: {
-  error: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-6 px-8 max-w-sm w-full text-center">
-        <div className="text-3xl font-bold tracking-widest text-foreground/90">
-          TROCADERO 77
-        </div>
-        <div className="w-12 h-12 rounded-full border-2 border-destructive flex items-center justify-center text-destructive text-xl">
-          !
-        </div>
-        <div className="text-sm text-foreground/70">{error}</div>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-          data-ocid="scan_error.button"
-        >
-          Retry Scan
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function AppInner() {
   const {
     signals,
@@ -129,7 +51,6 @@ function AppInner() {
     livePrices,
     coinList,
     isLoading,
-    scanError,
     marketSentiment,
     excludedByReputation,
   } = useCryptoSignals();
@@ -268,16 +189,6 @@ function AppInner() {
     sessionWins: sessionStats.wins,
     sessionTotal: sessionStats.totalTrades,
   };
-
-  // Show loading screen while scanning (only when we have no signals yet)
-  if (isLoading && signals.length === 0) {
-    return <ScanLoadingScreen scanProgress={scanProgress} />;
-  }
-
-  // Show error screen if scan completely failed with no fallback signals
-  if (scanError && signals.length === 0) {
-    return <ScanErrorScreen error={scanError} onRetry={handleRescan} />;
-  }
 
   const renderContent = () => {
     switch (activeSection) {

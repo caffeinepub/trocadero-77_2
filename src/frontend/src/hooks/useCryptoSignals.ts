@@ -83,251 +83,6 @@ interface CoinEntry {
   volume24h?: number;
 }
 
-function getFallbackCoins(): CoinEntry[] {
-  return [
-    {
-      id: "bitcoin",
-      name: "Bitcoin",
-      symbol: "BTC",
-      basePrice: 65000,
-      priceChange24h: 1.2,
-      volume24h: 30_000_000_000,
-    },
-    {
-      id: "ethereum",
-      name: "Ethereum",
-      symbol: "ETH",
-      basePrice: 3200,
-      priceChange24h: 0.8,
-      volume24h: 15_000_000_000,
-    },
-    {
-      id: "binancecoin",
-      name: "BNB",
-      symbol: "BNB",
-      basePrice: 580,
-      priceChange24h: 0.5,
-      volume24h: 2_000_000_000,
-    },
-    {
-      id: "solana",
-      name: "Solana",
-      symbol: "SOL",
-      basePrice: 165,
-      priceChange24h: 2.1,
-      volume24h: 3_000_000_000,
-    },
-    {
-      id: "ripple",
-      name: "XRP",
-      symbol: "XRP",
-      basePrice: 0.52,
-      priceChange24h: 0.3,
-      volume24h: 2_500_000_000,
-    },
-    {
-      id: "cardano",
-      name: "Cardano",
-      symbol: "ADA",
-      basePrice: 0.45,
-      priceChange24h: 1.5,
-      volume24h: 800_000_000,
-    },
-    {
-      id: "avalanche-2",
-      name: "Avalanche",
-      symbol: "AVAX",
-      basePrice: 38,
-      priceChange24h: 3.2,
-      volume24h: 700_000_000,
-    },
-    {
-      id: "chainlink",
-      name: "Chainlink",
-      symbol: "LINK",
-      basePrice: 15,
-      priceChange24h: 2.8,
-      volume24h: 600_000_000,
-    },
-    {
-      id: "dogecoin",
-      name: "Dogecoin",
-      symbol: "DOGE",
-      basePrice: 0.16,
-      priceChange24h: -0.5,
-      volume24h: 1_200_000_000,
-    },
-    {
-      id: "polkadot",
-      name: "Polkadot",
-      symbol: "DOT",
-      basePrice: 7.5,
-      priceChange24h: 1.1,
-      volume24h: 400_000_000,
-    },
-    {
-      id: "uniswap",
-      name: "Uniswap",
-      symbol: "UNI",
-      basePrice: 10,
-      priceChange24h: 1.8,
-      volume24h: 300_000_000,
-    },
-    {
-      id: "litecoin",
-      name: "Litecoin",
-      symbol: "LTC",
-      basePrice: 85,
-      priceChange24h: 0.6,
-      volume24h: 500_000_000,
-    },
-    {
-      id: "near",
-      name: "NEAR Protocol",
-      symbol: "NEAR",
-      basePrice: 7.2,
-      priceChange24h: 4.1,
-      volume24h: 600_000_000,
-    },
-    {
-      id: "aptos",
-      name: "Aptos",
-      symbol: "APT",
-      basePrice: 9.5,
-      priceChange24h: 2.3,
-      volume24h: 350_000_000,
-    },
-    {
-      id: "arbitrum",
-      name: "Arbitrum",
-      symbol: "ARB",
-      basePrice: 1.1,
-      priceChange24h: 1.9,
-      volume24h: 450_000_000,
-    },
-    {
-      id: "optimism",
-      name: "Optimism",
-      symbol: "OP",
-      basePrice: 2.5,
-      priceChange24h: 3.0,
-      volume24h: 380_000_000,
-    },
-    {
-      id: "the-sandbox",
-      name: "The Sandbox",
-      symbol: "SAND",
-      basePrice: 0.42,
-      priceChange24h: 2.2,
-      volume24h: 280_000_000,
-    },
-    {
-      id: "internet-computer",
-      name: "ICP",
-      symbol: "ICP",
-      basePrice: 12,
-      priceChange24h: 1.6,
-      volume24h: 300_000_000,
-    },
-    {
-      id: "render-token",
-      name: "Render",
-      symbol: "RENDER",
-      basePrice: 7.8,
-      priceChange24h: 4.5,
-      volume24h: 400_000_000,
-    },
-    {
-      id: "injective-protocol",
-      name: "Injective",
-      symbol: "INJ",
-      basePrice: 25,
-      priceChange24h: 3.8,
-      volume24h: 500_000_000,
-    },
-    {
-      id: "sei-network",
-      name: "SEI",
-      symbol: "SEI",
-      basePrice: 0.55,
-      priceChange24h: 2.7,
-      volume24h: 350_000_000,
-    },
-    {
-      id: "sui",
-      name: "SUI",
-      symbol: "SUI",
-      basePrice: 1.8,
-      priceChange24h: 5.1,
-      volume24h: 600_000_000,
-    },
-    {
-      id: "celestia",
-      name: "Celestia",
-      symbol: "TIA",
-      basePrice: 8.5,
-      priceChange24h: 3.4,
-      volume24h: 450_000_000,
-    },
-    {
-      id: "fetch-ai",
-      name: "Fetch.AI",
-      symbol: "FET",
-      basePrice: 2.1,
-      priceChange24h: 4.8,
-      volume24h: 400_000_000,
-    },
-    {
-      id: "pepe",
-      name: "Pepe",
-      symbol: "PEPE",
-      basePrice: 0.0000085,
-      priceChange24h: 6.2,
-      volume24h: 1_000_000_000,
-    },
-    {
-      id: "bonk",
-      name: "Bonk",
-      symbol: "BONK",
-      basePrice: 0.000025,
-      priceChange24h: 5.5,
-      volume24h: 700_000_000,
-    },
-    {
-      id: "worldcoin-wld",
-      name: "Worldcoin",
-      symbol: "WLD",
-      basePrice: 4.5,
-      priceChange24h: 3.1,
-      volume24h: 380_000_000,
-    },
-    {
-      id: "starknet",
-      name: "StarkNet",
-      symbol: "STRK",
-      basePrice: 1.2,
-      priceChange24h: 2.9,
-      volume24h: 320_000_000,
-    },
-    {
-      id: "jupiter-exchange-solana",
-      name: "Jupiter",
-      symbol: "JUP",
-      basePrice: 0.85,
-      priceChange24h: 4.0,
-      volume24h: 400_000_000,
-    },
-    {
-      id: "pyth-network",
-      name: "Pyth Network",
-      symbol: "PYTH",
-      basePrice: 0.55,
-      priceChange24h: 3.3,
-      volume24h: 280_000_000,
-    },
-  ];
-}
-
 // Generates signals with full AI engine integration
 function generateSignals(
   coinList: CoinEntry[],
@@ -621,18 +376,15 @@ export function useCryptoSignals() {
   const [scanProgress, setScanProgress] = useState<{
     current: number;
     total: number;
-    step?: string;
   }>({ current: 0, total: 0 });
   const [sessionWinRate, setSessionWinRate] = useState<number>(91);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [scanError, setScanError] = useState<string | null>(null);
   const interval = useRef<ReturnType<typeof setInterval> | null>(null);
   const livePricesRef = useRef<Record<string, number>>({});
   const coinListRef = useRef<CoinEntry[]>([]);
 
   const fetchBingXPairs = useCallback(async (): Promise<Set<string>> => {
     try {
-      setScanProgress((p) => ({ ...p, step: "Fetching BingX pairs..." }));
       const res = await fetch(
         "https://open-api.bingx.com/openApi/spot/v1/common/symbols",
         { signal: AbortSignal.timeout(8000) },
@@ -655,11 +407,8 @@ export function useCryptoSignals() {
 
   const fetchCoinGeckoMarkets = useCallback(async (): Promise<CoinEntry[]> => {
     try {
-      setScanProgress({
-        current: 0,
-        total: 1500,
-        step: "Fetching BingX pairs...",
-      });
+      // Scan 1500+ coins: 6 pages of 250 each
+      setScanProgress({ current: 0, total: 1500 });
 
       type CoinRow = {
         id: string;
@@ -671,88 +420,44 @@ export function useCryptoSignals() {
         total_volume: number;
       };
 
-      // Fetch BingX pairs first
-      const bingxSymbols = await fetchBingXPairs();
+      const makePageUrl = (page: number) =>
+        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=${page}&sparkline=false&price_change_percentage=24h,1h`;
 
-      // Helper: fetch a single CoinGecko page with retry on 429
-      async function fetchPage(page: number): Promise<CoinRow[]> {
-        const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=250&page=${page}&sparkline=false&price_change_percentage=24h,1h`;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            setScanProgress((p) => ({
-              ...p,
-              step: `Loading market data page ${page}/6...`,
-            }));
-            const res = await fetch(url, {
-              signal: AbortSignal.timeout(12000),
-            });
-            if (res.status === 429) {
-              // Rate limited — wait and retry
-              await new Promise((r) => setTimeout(r, 3000 + attempt * 2000));
-              continue;
-            }
-            if (!res.ok) return [];
-            return (await res.json()) as CoinRow[];
-          } catch {
-            return [];
-          }
-        }
-        return [];
+      // Fetch BingX pairs and all 6 CoinGecko pages in parallel
+      const [bingxSymbols, p1, p2, p3, p4, p5, p6] = await Promise.all([
+        fetchBingXPairs(),
+        fetch(makePageUrl(1), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+        fetch(makePageUrl(2), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+        fetch(makePageUrl(3), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+        fetch(makePageUrl(4), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+        fetch(makePageUrl(5), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+        fetch(makePageUrl(6), { signal: AbortSignal.timeout(10000) }).then(
+          (r) => (r.ok ? (r.json() as Promise<CoinRow[]>) : []),
+        ),
+      ]);
+
+      const pages = [p1, p2, p3, p4, p5, p6].map((p) =>
+        Array.isArray(p) ? p : [],
+      ) as CoinRow[][];
+
+      // Update progress as pages arrive
+      let cumulative = 0;
+      for (const page of pages) {
+        cumulative += page.length;
+        setScanProgress({ current: cumulative, total: 1500 });
       }
 
-      // Fetch in batches of 2 to avoid rate limits
-      const batch1 = await Promise.all([fetchPage(1), fetchPage(2)]);
-      const batch1Flat = batch1.flat();
-      setScanProgress({
-        current: batch1Flat.length,
-        total: 1500,
-        step: "Loading market data page 3/6...",
-      });
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      const batch2 = await Promise.all([fetchPage(3), fetchPage(4)]);
-      const batch2Flat = batch2.flat();
-      setScanProgress({
-        current: batch1Flat.length + batch2Flat.length,
-        total: 1500,
-        step: "Loading market data page 5/6...",
-      });
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      const batch3 = await Promise.all([fetchPage(5), fetchPage(6)]);
-      const batch3Flat = batch3.flat();
-
-      const allCoins: CoinRow[] = [
-        ...batch1Flat,
-        ...batch2Flat,
-        ...batch3Flat,
-      ].filter(Boolean);
-
-      // If all pages failed, use fallback
-      if (allCoins.length === 0) {
-        setScanProgress({
-          current: 30,
-          total: 30,
-          step: "Using fallback coin list...",
-        });
-        const fallback = getFallbackCoins();
-        setCoinList(fallback);
-        coinListRef.current = fallback;
-        setScannedPairsCount(fallback.length);
-        const priceMap: Record<string, number> = {};
-        for (const c of fallback) priceMap[c.symbol] = c.basePrice;
-        setLivePrices(priceMap);
-        livePricesRef.current = priceMap;
-        return fallback;
-      }
-
-      setScanProgress({
-        current: allCoins.length,
-        total: 1500,
-        step: "Processing signals...",
-      });
+      const allCoins: CoinRow[] = ([] as CoinRow[]).concat(...pages);
 
       const allEntries: CoinEntry[] = [];
       const priceMap: Record<string, number> = {};
@@ -819,7 +524,6 @@ export function useCryptoSignals() {
       setScanProgress({
         current: allEntries.length,
         total: Math.max(allEntries.length, 1500),
-        step: "Generating signals...",
       });
 
       const priceData = allEntries.map((e) => ({
@@ -833,21 +537,7 @@ export function useCryptoSignals() {
 
       return allEntries;
     } catch {
-      // Total failure — use fallback coins so app is never empty
-      const fallback = getFallbackCoins();
-      setCoinList(fallback);
-      coinListRef.current = fallback;
-      setScannedPairsCount(fallback.length);
-      const priceMap: Record<string, number> = {};
-      for (const c of fallback) priceMap[c.symbol] = c.basePrice;
-      setLivePrices(priceMap);
-      livePricesRef.current = priceMap;
-      setScanProgress({
-        current: fallback.length,
-        total: fallback.length,
-        step: "Using fallback data",
-      });
-      return fallback;
+      return [];
     }
   }, [fetchBingXPairs]);
 
@@ -908,16 +598,8 @@ export function useCryptoSignals() {
   const rescan = useCallback(async () => {
     setIsScanning(true);
     setSignals([]);
-    setScanError(null);
-    setScanProgress({ current: 0, total: 1500, step: "Starting scan..." });
+    setScanProgress({ current: 0, total: 1500 });
     const coins = await fetchCoinGeckoMarkets();
-    if (coins.length === 0) {
-      setScanError(
-        "Market data unavailable. CoinGecko may be rate-limiting. Please wait 30 seconds and try again.",
-      );
-      setIsScanning(false);
-      return;
-    }
     const avg =
       coins.reduce((s, c) => s + (c.priceChange24h ?? 0), 0) /
       Math.max(coins.length, 1);
@@ -928,7 +610,6 @@ export function useCryptoSignals() {
     setScanProgress({
       current: coins.length,
       total: Math.max(coins.length, 1500),
-      step: "Complete",
     });
     setIsScanning(false);
   }, [fetchCoinGeckoMarkets, buildSignals]);
@@ -998,17 +679,8 @@ export function useCryptoSignals() {
 
   useEffect(() => {
     setIsLoading(true);
-    setScanError(null);
 
     fetchCoinGeckoMarkets().then((coins) => {
-      if (coins.length === 0) {
-        setScanError(
-          "Could not load market data. CoinGecko may be rate-limiting requests. Please wait 30 seconds and tap Retry.",
-        );
-        setIsLoading(false);
-        return;
-      }
-      setScanError(null);
       const avg =
         coins.reduce((s, c) => s + (c.priceChange24h ?? 0), 0) /
         Math.max(coins.length, 1);
@@ -1041,7 +713,6 @@ export function useCryptoSignals() {
     scannedPairsCount,
     scanProgress,
     isLoading,
-    scanError,
     marketSentiment,
     excludedByReputation,
   };

@@ -46,9 +46,7 @@ function loadState(): MCBState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_STATE };
-    const saved = JSON.parse(raw);
-    // Always reset CONSECUTIVE_LOSSES on load — it should only trip during the active session
-    return { ...DEFAULT_STATE, ...saved, CONSECUTIVE_LOSSES: true };
+    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
   } catch {
     return { ...DEFAULT_STATE };
   }
@@ -74,17 +72,13 @@ const MCBContext = createContext<MCBContextValue | null>(null);
 
 export function MCBProvider({ children }: { children: React.ReactNode }) {
   const [mcb, setMCB] = useState<MCBState>(loadState);
-  const [consecutiveLosses, setConsecutiveLosses] = useState<number>(0);
+  const [consecutiveLosses, setConsecutiveLosses] = useState<number>(() => {
+    return Number(localStorage.getItem(CONSEC_LOSSES_KEY) ?? "0");
+  });
   const [stabilizerTrippedReason, setStabilizerTrippedReason] = useState<
     string | null
   >(null);
   const prevMCB = useRef(mcb);
-
-  // Reset consecutive losses counter on each new session
-  useEffect(() => {
-    localStorage.setItem(CONSEC_LOSSES_KEY, "0");
-    setConsecutiveLosses(0);
-  }, []);
 
   useEffect(() => {
     prevMCB.current = mcb;
